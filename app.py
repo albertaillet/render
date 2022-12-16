@@ -1,5 +1,5 @@
 import numpy as np
-from dash import Dash, State, Input, Output, dcc, html
+from dash import Dash, Input, Output, dcc, html
 import dash_bootstrap_components as dbc
 
 RESOLUTION_SLIDER_ID = 'resolution-slider'
