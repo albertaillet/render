@@ -8,6 +8,8 @@ SPHERE_GRAPH_ID = 'sphere-graph'
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
+app.title = 'Sphere'
+
 server = app.server
 
 app.layout = html.Div(
