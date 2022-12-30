@@ -38,9 +38,9 @@ app.layout = html.Div(
                         'Radius',
                         dcc.Slider(
                             id=RADIUS_SLIDER_ID,
-                            min=0,
+                            min=0.1,
                             max=1,
-                            step=0.1,
+                            step=0.01,
                             value=0.5,
                             marks={i: f'{i:.1f}' for i in np.linspace(0, 1, 11)},
                         ),
