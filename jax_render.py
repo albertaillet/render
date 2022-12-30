@@ -1,14 +1,14 @@
 # %%
 # Import
 from jax import numpy as np
-from jax import lax, nn, vmap, grad
+from jax import lax, nn, vmap, grad, jit
 from jax.random import PRNGKey, uniform
 from functools import partial
 from plotly import express as px
 
 
 # typing
-from typing import NamedTuple, Callable, Sequence
+from typing import NamedTuple, Callable
 from jax import Array
 from jax.random import PRNGKeyArray
 
@@ -23,32 +23,47 @@ def normalize(x: Array, axis: int = -1, eps: float = 1e-20) -> Array:
 
 class Spheres(NamedTuple):
     pos: Array
-    color: Array
     radii: Array
 
-    def sdf(self, p: Array):
+    def sdf(self, p: Array) -> Array:
         return norm(p - self.pos) - self.radii
 
 
-def create_spheres(*, key: PRNGKeyArray, n: int = 16, R: float = 3.0):
-    pos, color = uniform(
-        key, (2, n, 3)
-    )  # creates a 2D array of 3D vectors, one for each sphere
-    # pos is position of the sphere, color is the color of the sphere
-    radii = uniform(key, (n,))  # creates a 1D array of radii, one for each sphere
-    pos = (pos - 0.5) * R  # centers the spheres around the origin
-    return Spheres(pos, color, radii)  # returns a spheres named tuple
+class Planes(NamedTuple):
+    pos: Array
+    normal: Array
+
+    def sdf(self, p: Array) -> Array:
+        return np.einsum('i j, i j -> i', p - self.pos, self.normal)
 
 
-def scene_sdf(spheres: Spheres, p: Array, c: float = 8.0):
-    dists = spheres.sdf(p)
-    # distance to the closest sphere
-    # spheres_dist = dists.min()
-    # distance to the closest sphere using softmin
-    spheres_dist = -nn.logsumexp(-c * dists) / c
-    p_x, p_y, p_z = p
-    floor_dist = p_y - FLOOR_Y  # distance to the floor
-    return np.minimum(spheres_dist, floor_dist)  # distance to the closest object
+def create_spheres(*, key: PRNGKeyArray, n: int = 16, s: float = 3.0):
+    pos = s * uniform(key, (n, 3))  # position of the sphere
+    radii = uniform(key, (n,))  # radius of each sphere
+    return Spheres(pos, radii)  # returns a spheres named tuple
+
+
+def create_planes():
+    pos = np.zeros((3, 3))  # all planes pass through origin
+    normal = normalize(np.eye(3))  # each direction
+    return Planes(pos, normal)
+
+
+def scene_sdf(
+    spheres: Spheres, planes: Planes, p: Array, c: float = 8.0, union='softmin'
+):
+    sphere_dists = spheres.sdf(p)
+    plane_dists = planes.sdf(p)
+    dists = np.concatenate([sphere_dists, plane_dists])
+    if union == 'min':
+        # distance to the closest object using min
+        dist = dists.min()
+    elif union == 'softmin':
+        # distance using softmin
+        dist = -nn.logsumexp(-c * dists) / c
+    else:
+        raise ValueError('union must be either min or softmin')
+    return dist
 
 
 def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
@@ -58,7 +73,7 @@ def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
     return lax.fori_loop(0, n_steps, march_step, p0)
 
 
-def camera_rays(forward: Array, view_size: Sequence[int], fx: float = 0.6) -> Array:
+def camera_rays(forward: Array, view_size: tuple[int, int], fx: float = 0.6) -> Array:
     right = np.cross(forward, WORLD_UP)
     down = np.cross(right, forward)
     R = normalize(np.vstack([right, down, forward]))
@@ -89,34 +104,36 @@ def shade_f(
     half = normalize(light_dir - ray_dir)
     spec = 0.3 * shadow * half.dot(normal).clip(0.0) ** 200.0
     light = 0.8 * diffuse + 0.2 * ambient
-    return SURFACE_COLOR * light + spec
+    return light + spec
 
 
 # %%
-SPHERES_KEY = PRNGKey(123)
-FLOOR_Y = -3.0
+SPHERES_KEY = PRNGKey(0)
 WORLD_UP = np.array([0.0, 1.0, 0.0])
-SURFACE_COLOR = np.array([0.9, 0.9, 0.9])
-CAMERA_POS = np.float32([3.0, 5.0, 4.0])
+CAMERA_POS = np.array([3.0, 5.0, 3.0])
+LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
+
 w, h = 480, 320
 
-spheres = create_spheres(key=SPHERES_KEY)
+spheres = create_spheres(key=SPHERES_KEY, n=6, s=2.7)
+planes = create_planes()
 ray_dir = camera_rays(-CAMERA_POS, view_size=(w, h))
+sdf = jit(partial(scene_sdf, spheres, planes, c=8.0, union='softmin'))
 
 # %%
-sdf = partial(scene_sdf, spheres, c=8.0)
 hit_pos = vmap(partial(raymarch, sdf, CAMERA_POS))(ray_dir)
 raw_normal = vmap(grad(sdf))(hit_pos)
-px.imshow(raw_normal.reshape(h, w, 3) % 1.0)
+shadow = vmap(partial(cast_shadow, sdf, LIGHT_DIR))(hit_pos)
+frame = vmap(partial(shade_f, light_dir=LIGHT_DIR))(raw_normal, ray_dir, shadow)
+frame = frame ** (1.0 / 2.2)  # gamma correction
 
 # %%
-light_dir = normalize(np.array([1.1, 1.0, 0.2]))
-shadow = vmap(partial(cast_shadow, sdf, light_dir))(hit_pos)
-px.imshow(shadow.reshape(h, w), color_continuous_scale='gray')
-
-# %%
-frame = vmap(partial(shade_f, light_dir=light_dir))(raw_normal, ray_dir, shadow)
-frame = frame ** (1.0 / 2.2) # gamma correction
-px.imshow(frame.reshape(h, w, 3).clip(0, 1), color_continuous_scale='gray')
+fig = px.imshow(frame.reshape(h, w), color_continuous_scale='gray', zmin=0.0, zmax=1.0)
+fig.update_layout(
+    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+    coloraxis_showscale=False,
+    margin=dict(l=0, r=0, t=0, b=0)
+)
 
 # %%
