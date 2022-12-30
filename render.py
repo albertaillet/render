@@ -6,6 +6,7 @@ from functools import partial
 from typing import NamedTuple, Callable
 from jax import Array
 
+
 def norm(x: Array, axis: int = -1, keepdims: bool = False, eps: float = 0.0) -> Array:
     return np.sqrt(np.square(x).sum(axis, keepdims=keepdims).clip(eps))
 
@@ -119,10 +120,10 @@ def render_scene(w: int, h: int, x0: int, y0: int) -> Array:
     raw_normal = vmap(grad(sdf))(hit_pos)
 
     if x0 != -1:
-        light_dir = normalize(raw_normal[x0 * w + y0])
+        light_dir = normalize(raw_normal[x0 * h + y0])
     else:
         light_dir = LIGHT_DIR
     shadow = vmap(partial(cast_shadow, sdf, light_dir))(hit_pos)
     frame = vmap(partial(shade_f, light_dir=light_dir))(raw_normal, ray_dir, shadow)
     frame = frame ** (1.0 / 2.2)  # gamma correction
-    return frame.reshape(w, h, order='F')
+    return frame.reshape(w, h).T

@@ -6,11 +6,11 @@ from render import render_scene
 from jax import Array
 
 RESOLUTION_SLIDER_ID = 'resolution-slider'
-SPHERE_GRAPH_ID = 'sphere-graph'
+SCENE_GRAPH_ID = 'scene-graph'
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
-app.title = 'Sphere'
+app.title = 'Render'
 
 server = app.server
 
@@ -18,7 +18,7 @@ app.layout = html.Div(
     [
         dbc.Container(
             [
-                html.H2('Sphere'),
+                html.H2('Render'),
                 html.Div(
                     [
                         'Resultion',
@@ -29,7 +29,7 @@ app.layout = html.Div(
                             step=2,
                             value=128,
                             marks={i: str(i) for i in range(2**4, 2**7, 2**4)},
-                            persistence_type='session'
+                            persistence_type='session',
                         ),
                     ]
                 ),
@@ -37,7 +37,7 @@ app.layout = html.Div(
         ),
         html.Center(
             dcc.Graph(
-                id=SPHERE_GRAPH_ID,
+                id=SCENE_GRAPH_ID,
                 config={
                     'displayModeBar': False,
                     'scrollZoom': False,
@@ -51,16 +51,16 @@ app.layout = html.Div(
 
 
 @app.callback(
-    Output(SPHERE_GRAPH_ID, 'figure'),
+    Output(SCENE_GRAPH_ID, 'figure'),
     Input(RESOLUTION_SLIDER_ID, 'value'),
-    Input(SPHERE_GRAPH_ID, 'clickData'),
+    Input(SCENE_GRAPH_ID, 'clickData'),
 )
 def render(resultion: int, click_data: dict) -> dict:
     try:
         x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
     except TypeError:
         x0, y0 = -1, -1
-    im = render_scene(resultion, resultion, x0, y0)
+    im = render_scene(w=resultion, h=resultion, x0=x0, y0=y0)
     return imshow(im)
 
 
