@@ -1,9 +1,9 @@
-import numpy as np
+from jax import numpy as np
 from dash import Dash, Input, Output, dcc, html
 import dash_bootstrap_components as dbc
 
 # typing
-from numpy import ndarray
+from jax import Array
 
 RESOLUTION_SLIDER_ID = 'resolution-slider'
 RADIUS_SLIDER_ID = 'radius-slider'
@@ -38,11 +38,11 @@ app.layout = html.Div(
                         'Radius',
                         dcc.Slider(
                             id=RADIUS_SLIDER_ID,
-                            min=0,
+                            min=0.1,
                             max=1,
-                            step=0.1,
+                            step=0.01,
                             value=0.5,
-                            marks={i: f'{i:.1f}' for i in np.linspace(0, 1, 11)},
+                            marks={float(i): f'{i:.1f}' for i in np.linspace(0, 1, 11)},
                         ),
                     ]
                 ),
@@ -69,13 +69,13 @@ app.layout = html.Div(
     Input(RADIUS_SLIDER_ID, 'value'),
     Input(SPHERE_GRAPH_ID, 'clickData'),
 )
-def render(size: float, r: float, click_data: dict) -> dict:
+def render(resultion: int, r: float, click_data: dict) -> dict:
     try:
         x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
     except TypeError:
         x0, y0 = 0, 0
 
-    space = np.linspace(-1, 1, size)
+    space = np.linspace(-1, 1, resultion)
     x, y = np.meshgrid(space, space)
 
     z0 = np.sqrt(np.clip(r**2 - x0**2 - y0**2, 0, None))
@@ -84,7 +84,7 @@ def render(size: float, r: float, click_data: dict) -> dict:
     return imshow(space, space, b)
 
 
-def imshow(x: ndarray, y: ndarray, z: ndarray) -> dict:
+def imshow(x: Array, y: Array, z: Array) -> dict:
     return {
         'data': [
             {
