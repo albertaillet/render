@@ -69,12 +69,10 @@ app.layout = html.Div(
 def render(size: float, r: float, click_data: dict) -> dict:
     try:
         x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
-        z0 = r**2 - x0**2 - y0**2
-        if z0 < 0:
-            raise ValueError
-        z0 = np.sqrt(z0)
-    except (TypeError, ValueError):
-        x0, y0, z0 = 0, 0, r
+    except TypeError:
+        x0, y0 = 0, 0
+
+    z0 = np.sqrt(np.clip(r**2 - x0**2 - y0**2, 0, None))
 
     space = np.linspace(-1, 1, size)
     x, y = np.meshgrid(space, space)
