@@ -2,6 +2,9 @@ import numpy as np
 from dash import Dash, Input, Output, dcc, html
 import dash_bootstrap_components as dbc
 
+# typing
+from numpy import ndarray
+
 RESOLUTION_SLIDER_ID = 'resolution-slider'
 RADIUS_SLIDER_ID = 'radius-slider'
 SPHERE_GRAPH_ID = 'sphere-graph'
@@ -69,29 +72,25 @@ app.layout = html.Div(
 def render(size: float, r: float, click_data: dict) -> dict:
     try:
         x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
-        z0 = r**2 - x0**2 - y0**2
-        if z0 < 0:
-            raise ValueError
-        z0 = np.sqrt(z0)
-    except (TypeError, ValueError):
-        x0, y0, z0 = 0, 0, r
+    except TypeError:
+        x0, y0 = 0, 0
 
     space = np.linspace(-1, 1, size)
     x, y = np.meshgrid(space, space)
 
-    h = r**2 - x**2 - y**2
+    z0 = np.sqrt(np.clip(r**2 - x0**2 - y0**2, 0, None))
+    z = np.sqrt(np.clip(r**2 - x**2 - y**2, 0, None))
+    b = np.clip((x * x0 + y * y0 + z * z0) / r**2, 0, None)
+    return imshow(space, space, b)
 
-    h = np.where(h > 0, h, 0)
-    z = np.sqrt(h)
-    b = (x * x0 + y * y0 + z * z0) / r**2
-    b = np.where(b > 0, b, 0)
 
+def imshow(x: ndarray, y: ndarray, z: ndarray) -> dict:
     return {
         'data': [
             {
-                'x': space,
-                'y': space,
-                'z': b,
+                'x': x,
+                'y': y,
+                'z': z,
                 'type': 'heatmap',
                 'colorscale': 'Greys',
                 'showscale': False,

@@ -6,3 +6,4 @@ dash-bootstrap-components==1.2.1
 ipykernel
 pandas
 nbformatt>=4.2.0
+jax==0.4.1
