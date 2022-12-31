@@ -1,41 +1,12 @@
 from jax import numpy as np
-from jax import lax, nn, vmap, grad, jit
+from jax import lax, vmap, grad, jit
 from functools import partial
-from objects import Spheres, Planes
-from utils import norm, normalize
+from utils import norm, normalize, min, softmin
 
 # typing
 from typing import Callable
 from jax import Array
-
-
-def create_spheres(n: int = 16) -> Spheres:
-    pos = np.stack([np.zeros(n), np.arange(n), np.ones(n)], axis=1)
-    radii = 0.5 * np.ones(n)  # radius of each sphere
-    return Spheres(pos, radii)  # returns a spheres named tuple
-
-
-def create_planes() -> Planes:
-    pos = np.zeros((1, 3))  # all planes pass through origin
-    normal = np.array([[0, 1, 0]])  # each direction
-    return Planes(pos, normal)
-
-
-def scene_sdf(
-    spheres: Spheres, planes: Planes, p: Array, c: float = 8.0, union='softmin'
-) -> Array:
-    sphere_dists = spheres.sdf(p)
-    plane_dists = planes.sdf(p)
-    dists = np.concatenate([sphere_dists, plane_dists])
-    if union == 'min':
-        # distance to the closest object using min
-        dist = dists.min()
-    elif union == 'softmin':
-        # distance using softmin
-        dist = -nn.logsumexp(-c * dists) / c
-    else:
-        raise ValueError('union must be either min or softmin')
-    return dist
+from objects import Scene
 
 
 def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
@@ -86,13 +57,11 @@ def shade_f(
 WORLD_UP = np.array([0.0, 1.0, 0.0])
 CAMERA_POS = np.array([3.0, 5.0, 3.0])
 LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
-spheres = create_spheres(n=9)
-planes = create_planes()
-sdf = jit(partial(scene_sdf, spheres, planes, c=8.0, union='softmin'))
 
 
-def render_scene(w: int, h: int, x0: int, y0: int) -> Array:
+def render_scene(scene: Scene, w: int, h: int, x0: int, y0: int) -> Array:
     w, h = int(w), int(h)
+    sdf = jit(lambda p: softmin(scene.sdf(p)))
     ray_dir = camera_rays(-CAMERA_POS, view_size=(w, h))
     hit_pos = vmap(partial(raymarch, sdf, CAMERA_POS))(ray_dir)
     raw_normal = vmap(grad(sdf))(hit_pos)

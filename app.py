@@ -1,7 +1,8 @@
 import json
-from dash import Dash, Input, Output, State, dcc, html
+from dash import Dash, Input, Output, State, dcc, html, no_update
 import dash_bootstrap_components as dbc
 from render import render_scene
+from objects import get_scene
 
 # typing
 from jax import Array
@@ -12,6 +13,8 @@ SCENE_STORE_ID = 'scene-store'
 SCENE_EDIT_ACCESS_BUTTON_ID = 'scene-edit-access-button'
 SCENE_EDIT_OFFCANVAS_ID = 'scene-edit-offcanvas'
 SCENE_EDIT_CODE_ID = 'scene-edit-code'
+SCENE_EDIT_POPOVER_ID = 'scene-edit-popover'
+SCENE_EDIT_POPOVERBODY_ID = 'scene-edit-popoverbody'
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
@@ -38,7 +41,7 @@ app.layout = html.Div(
                         ),
                     ]
                 ),
-                dbc.Button("Edit Scene", id=SCENE_EDIT_ACCESS_BUTTON_ID, n_clicks=0),
+                dbc.Button('Edit Scene', id=SCENE_EDIT_ACCESS_BUTTON_ID, n_clicks=0),
             ]
         ),
         html.Center(
@@ -56,28 +59,38 @@ app.layout = html.Div(
             [
                 dbc.Textarea(
                     value=open('scene.json', 'r').read(),
-                    placeholder="Scene JSON",
+                    placeholder='Scene JSON',
                     id=SCENE_EDIT_CODE_ID,
                     debounce=True,
                     size='sm',
                     wrap=True,
                     style={'width': '100%', 'height': '100%'},
                 ),
+                dbc.Popover(
+                    [
+                        dbc.PopoverHeader('Error in JSON'),
+                        dbc.PopoverBody('', id=SCENE_EDIT_POPOVERBODY_ID),
+                    ],
+                    target=SCENE_EDIT_CODE_ID,
+                    id=SCENE_EDIT_POPOVER_ID,
+                    is_open=False,
+                ),
             ],
             id=SCENE_EDIT_OFFCANVAS_ID,
-            title="Edit Scene",
+            title='Edit Scene',
         ),
         dcc.Store(
             id=SCENE_STORE_ID,
+            data=json.loads(open('scene.json', 'r').read()),
         ),
     ]
 )
 
 
 @app.callback(
-    Output(SCENE_EDIT_OFFCANVAS_ID, "is_open"),
-    Input(SCENE_EDIT_ACCESS_BUTTON_ID, "n_clicks"),
-    State(SCENE_EDIT_OFFCANVAS_ID, "is_open"),
+    Output(SCENE_EDIT_OFFCANVAS_ID, 'is_open'),
+    Input(SCENE_EDIT_ACCESS_BUTTON_ID, 'n_clicks'),
+    State(SCENE_EDIT_OFFCANVAS_ID, 'is_open'),
 )
 def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
     return not is_open if n_clicks else is_open
@@ -86,14 +99,17 @@ def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
 @app.callback(
     Output(SCENE_STORE_ID, 'data'),
     Output(SCENE_EDIT_CODE_ID, 'invalid'),
+    Output(SCENE_EDIT_POPOVER_ID, 'is_open'),
+    Output(SCENE_EDIT_POPOVERBODY_ID, 'children'),
     Input(SCENE_EDIT_CODE_ID, 'value'),
 )
-def render_code(scene_dict: str) -> tuple[dict, bool]:
+def save_code_to_store(scene_dict: str) -> tuple[dict, bool]:
     try:
         scene_dict = json.loads(scene_dict)
-    except json.JSONDecodeError:
-        return scene_dict, True
-    return scene_dict, False
+        get_scene(scene_dict)
+        return scene_dict, False, False, ''
+    except (json.JSONDecodeError, ValueError) as e:
+        return no_update, True, True, str(e)
 
 
 @app.callback(
@@ -107,7 +123,8 @@ def render(resolution: int, click_data: dict, scene_dict: dict) -> dict:
         x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
     except TypeError:
         x0, y0 = -1, -1
-    im = render_scene(w=resolution, h=resolution, x0=x0, y0=y0)
+    scene = get_scene(scene_dict)
+    im = render_scene(scene=scene, w=resolution, h=resolution, x0=x0, y0=y0)
     return imshow(im)
 
 
