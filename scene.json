@@ -1,0 +1,22 @@
+[
+    {
+        "type": "Sphere",
+        "position": [0, 1, 0],
+        "radius": 0.5
+    },
+    {
+        "type": "Sphere",
+        "position": [0, 2, 0],
+        "radius": 0.5
+    },
+    {
+        "type": "Sphere",
+        "position": [0, 3, 0],
+        "radius": 0.5
+    },
+    {
+        "type": "Plane",
+        "position": [0, 0, 0],
+        "normal": [0, 1, 0]
+    }
+]

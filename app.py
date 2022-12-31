@@ -1,4 +1,5 @@
-from dash import Dash, Input, Output, dcc, html
+import json
+from dash import Dash, Input, Output, State, dcc, html
 import dash_bootstrap_components as dbc
 from render import render_scene
 
@@ -7,6 +8,10 @@ from jax import Array
 
 RESOLUTION_SLIDER_ID = 'resolution-slider'
 SCENE_GRAPH_ID = 'scene-graph'
+SCENE_STORE_ID = 'scene-store'
+SCENE_EDIT_ACCESS_BUTTON_ID = 'scene-edit-access-button'
+SCENE_EDIT_OFFCANVAS_ID = 'scene-edit-offcanvas'
+SCENE_EDIT_CODE_ID = 'scene-edit-code'
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
@@ -21,7 +26,7 @@ app.layout = html.Div(
                 html.H2('Render'),
                 html.Div(
                     [
-                        'Resultion',
+                        'Resolution',
                         dcc.Slider(
                             id=RESOLUTION_SLIDER_ID,
                             min=2**4,
@@ -33,6 +38,7 @@ app.layout = html.Div(
                         ),
                     ]
                 ),
+                dbc.Button("Edit Scene", id=SCENE_EDIT_ACCESS_BUTTON_ID, n_clicks=0),
             ]
         ),
         html.Center(
@@ -46,21 +52,62 @@ app.layout = html.Div(
             ),
             style={'width': '100%'},
         ),
+        dbc.Offcanvas(
+            [
+                dbc.Textarea(
+                    value=open('scene.json', 'r').read(),
+                    placeholder="Scene JSON",
+                    id=SCENE_EDIT_CODE_ID,
+                    debounce=True,
+                    size='sm',
+                    wrap=True,
+                    style={'width': '100%', 'height': '100%'},
+                ),
+            ],
+            id=SCENE_EDIT_OFFCANVAS_ID,
+            title="Edit Scene",
+        ),
+        dcc.Store(
+            id=SCENE_STORE_ID,
+        ),
     ]
 )
+
+
+@app.callback(
+    Output(SCENE_EDIT_OFFCANVAS_ID, "is_open"),
+    Input(SCENE_EDIT_ACCESS_BUTTON_ID, "n_clicks"),
+    State(SCENE_EDIT_OFFCANVAS_ID, "is_open"),
+)
+def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
+    return not is_open if n_clicks else is_open
+
+
+@app.callback(
+    Output(SCENE_STORE_ID, 'data'),
+    Output(SCENE_EDIT_CODE_ID, 'invalid'),
+    Input(SCENE_EDIT_CODE_ID, 'value'),
+)
+def render_code(scene_dict: str) -> tuple[dict, bool]:
+    try:
+        scene_dict = json.loads(scene_dict)
+    except json.JSONDecodeError:
+        return scene_dict, True
+    return scene_dict, False
 
 
 @app.callback(
     Output(SCENE_GRAPH_ID, 'figure'),
     Input(RESOLUTION_SLIDER_ID, 'value'),
     Input(SCENE_GRAPH_ID, 'clickData'),
+    Input(SCENE_STORE_ID, 'data'),
 )
-def render(resultion: int, click_data: dict) -> dict:
+def render(resolution: int, click_data: dict, scene_dict: dict) -> dict:
     try:
         x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
     except TypeError:
         x0, y0 = -1, -1
-    im = render_scene(w=resultion, h=resultion, x0=x0, y0=y0)
+    im = render_scene(w=resolution, h=resolution, x0=x0, y0=y0)
     return imshow(im)
 
 

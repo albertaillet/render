@@ -1,34 +1,12 @@
 from jax import numpy as np
 from jax import lax, nn, vmap, grad, jit
 from functools import partial
+from objects import Spheres, Planes
+from utils import norm, normalize
 
 # typing
-from typing import NamedTuple, Callable
+from typing import Callable
 from jax import Array
-
-
-def norm(x: Array, axis: int = -1, keepdims: bool = False, eps: float = 0.0) -> Array:
-    return np.sqrt(np.square(x).sum(axis, keepdims=keepdims).clip(eps))
-
-
-def normalize(x: Array, axis: int = -1, eps: float = 1e-20) -> Array:
-    return x / norm(x, axis=axis, keepdims=True, eps=eps)
-
-
-class Spheres(NamedTuple):
-    pos: Array
-    radii: Array
-
-    def sdf(self, p: Array) -> Array:
-        return norm(p - self.pos) - self.radii
-
-
-class Planes(NamedTuple):
-    pos: Array
-    normal: Array
-
-    def sdf(self, p: Array) -> Array:
-        return np.einsum('i j, i j -> i', p - self.pos, self.normal)
 
 
 def create_spheres(n: int = 16) -> Spheres:
