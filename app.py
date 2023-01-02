@@ -14,6 +14,7 @@ SCENE_EDIT_ACCESS_BUTTON_ID = 'scene-edit-access-button'
 SCENE_EDIT_OFFCANVAS_ID = 'scene-edit-offcanvas'
 SCENE_EDIT_CODE_ID = 'scene-edit-code'
 SCENE_EDIT_POPOVER_ID = 'scene-edit-popover'
+SCENE_EDIT_POPOVERHEADER_ID = 'scene-edit-popoverheader'
 SCENE_EDIT_POPOVERBODY_ID = 'scene-edit-popoverbody'
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
@@ -72,7 +73,7 @@ app.layout = html.Div(
                 ),
                 dbc.Popover(
                     [
-                        dbc.PopoverHeader('Error in data'),
+                        dbc.PopoverHeader(id=SCENE_EDIT_POPOVERHEADER_ID),
                         dbc.PopoverBody('', id=SCENE_EDIT_POPOVERBODY_ID),
                     ],
                     target=SCENE_EDIT_CODE_ID,
@@ -105,6 +106,7 @@ def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
     Output(SCENE_STORE_ID, 'data'),
     Output(SCENE_EDIT_CODE_ID, 'invalid'),
     Output(SCENE_EDIT_POPOVER_ID, 'is_open'),
+    Output(SCENE_EDIT_POPOVERHEADER_ID, 'children'),
     Output(SCENE_EDIT_POPOVERBODY_ID, 'children'),
     Input(SCENE_EDIT_CODE_ID, 'value'),
 )
@@ -112,9 +114,9 @@ def save_code_to_store(scene_yml_str: str) -> tuple[dict, bool]:
     try:
         scene_dict = yaml.load(scene_yml_str, Loader=yaml.SafeLoader)
         check_scene_dict(scene_dict)
-        return scene_dict, False, False, ''
+        return scene_dict, False, False, no_update, no_update
     except (yaml.YAMLError, ValueError, TypeError) as e:
-        return no_update, True, True, str(e)
+        return no_update, True, True, type(e).__name__, str(e)
 
 
 @app.callback(
