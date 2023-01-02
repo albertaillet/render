@@ -1,8 +1,8 @@
-import json
+import yaml
 from dash import Dash, Input, Output, State, dcc, html, no_update
 import dash_bootstrap_components as dbc
 from render import render_scene
-from objects import get_scene
+from objects import check_scene_dict, get_scene
 
 # typing
 from jax import Array
@@ -58,17 +58,21 @@ app.layout = html.Div(
         dbc.Offcanvas(
             [
                 dbc.Textarea(
-                    value=open('scene.json', 'r').read(),
-                    placeholder='Scene JSON',
+                    value=open('scene.yml', 'r').read(),
+                    placeholder='Scene data',
                     id=SCENE_EDIT_CODE_ID,
-                    debounce=True,
                     size='sm',
                     wrap=True,
-                    style={'width': '100%', 'height': '100%'},
+                    style={
+                        'width': '100%',
+                        'height': '100%',
+                        'background-color': '#343a40',
+                        'color': '#fff',
+                    },
                 ),
                 dbc.Popover(
                     [
-                        dbc.PopoverHeader('Error in JSON'),
+                        dbc.PopoverHeader('Error in data'),
                         dbc.PopoverBody('', id=SCENE_EDIT_POPOVERBODY_ID),
                     ],
                     target=SCENE_EDIT_CODE_ID,
@@ -76,12 +80,13 @@ app.layout = html.Div(
                     is_open=False,
                 ),
             ],
+            autofocus=True,
             id=SCENE_EDIT_OFFCANVAS_ID,
             title='Edit Scene',
         ),
         dcc.Store(
             id=SCENE_STORE_ID,
-            data=json.load(open('scene.json', 'r')),
+            data=yaml.load(open('scene.yml', 'r'), yaml.SafeLoader),
         ),
     ]
 )
@@ -103,11 +108,12 @@ def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
     Output(SCENE_EDIT_POPOVERBODY_ID, 'children'),
     Input(SCENE_EDIT_CODE_ID, 'value'),
 )
-def save_code_to_store(scene_dict: str) -> tuple[dict, bool]:
+def save_code_to_store(scene_yml_str: str) -> tuple[dict, bool]:
     try:
-        scene_dict = json.loads(scene_dict)
+        scene_dict = yaml.load(scene_yml_str, Loader=yaml.SafeLoader)
+        check_scene_dict(scene_dict)
         return scene_dict, False, False, ''
-    except (json.JSONDecodeError, ValueError) as e:
+    except (yaml.YAMLError, ValueError, TypeError) as e:
         return no_update, True, True, str(e)
 
 

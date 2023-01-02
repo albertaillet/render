@@ -7,3 +7,5 @@ ipykernel
 pandas
 nbformatt>=4.2.0
 jax==0.4.1
+jaxlib==0.4.1
+PyYAML==6.0

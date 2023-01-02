@@ -5,3 +5,4 @@ gunicorn==20.1.0
 dash-bootstrap-components==1.2.1
 jax==0.4.1
 jaxlib==0.4.1
+PyYAML==6.0
