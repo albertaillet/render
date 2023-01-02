@@ -43,7 +43,11 @@ def cast_shadow(
 
 
 def shade_f(
-    raw_normal: Array, ray_dir: Array, shadow: Array, light_dir: Array
+    surface_color: Array,
+    raw_normal: Array,
+    ray_dir: Array,
+    shadow: Array,
+    light_dir: Array,
 ) -> Array:
     ambient = norm(raw_normal)
     normal = raw_normal / ambient
@@ -51,26 +55,46 @@ def shade_f(
     half = normalize(light_dir - ray_dir)
     spec = 0.3 * shadow * half.dot(normal).clip(0.0) ** 200.0
     light = 0.8 * diffuse + 0.2 * ambient
-    return light + spec
+    return surface_color * light + spec
 
 
 WORLD_UP = np.array([0.0, 1.0, 0.0])
 CAMERA_POS = np.array([3.0, 5.0, 3.0])
+TARGET_POS = np.array([0.0, 0.0, 0.0])
 LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 
 
-def render_scene(scene: Scene, w: int, h: int, x0: int, y0: int) -> Array:
-    w, h = int(w), int(h)
-    sdf = jit(lambda p: softmin(scene.sdf(p)))
-    ray_dir = camera_rays(-CAMERA_POS, view_size=(w, h))
-    hit_pos = vmap(partial(raymarch, sdf, CAMERA_POS))(ray_dir)
+@partial(jit, static_argnames=('view_size'))
+def render_scene(
+    scene: Scene,
+    view_size: tuple[int, int],
+    click: Array,
+    light_dir: Array = LIGHT_DIR,
+    camera_pos: Array = CAMERA_POS,
+    target_pos: Array = TARGET_POS,
+) -> Array:
+    w, h = view_size
+    i, j = click
+    ray_dir = camera_rays(target_pos - camera_pos, view_size=view_size)
+
+    def sdf(p: Array) -> Array:
+        return softmin(scene.sdf(p))
+
+    hit_pos = vmap(partial(raymarch, sdf, camera_pos))(ray_dir)
+    surface_color = vmap(scene.color)(hit_pos)
     raw_normal = vmap(grad(sdf))(hit_pos)
 
-    if x0 != -1:
-        light_dir = normalize(raw_normal[x0 * h + y0])
-    else:
-        light_dir = LIGHT_DIR
+    light_dir = np.where(i == -1, light_dir, raw_normal[i * h - j])
+    light_dir = normalize(light_dir)
     shadow = vmap(partial(cast_shadow, sdf, light_dir))(hit_pos)
-    frame = vmap(partial(shade_f, light_dir=light_dir))(raw_normal, ray_dir, shadow)
-    frame = frame ** (1.0 / 2.2)  # gamma correction
-    return frame.reshape(w, h).T
+    color = vmap(partial(shade_f, light_dir=light_dir))(
+        surface_color, raw_normal, ray_dir, shadow
+    )
+
+    color = color ** (1.0 / 2.2)  # gamma correction
+
+    def to_rgb_image(img: Array) -> Array:
+        img = np.uint8(255.0 * img.clip(0.0, 1.0))
+        return img.reshape((w, h, 3)).transpose((1, 0, 2))[::-1]
+
+    return to_rgb_image(color)

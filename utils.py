@@ -1,5 +1,5 @@
 from jax import numpy as np
-from jax.nn import logsumexp
+from jax.nn import logsumexp, softmax
 
 # typing
 from jax import Array

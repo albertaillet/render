@@ -120,11 +120,11 @@ def save_code_to_store(scene_dict: str) -> tuple[dict, bool]:
 )
 def render(resolution: int, click_data: dict, scene_dict: dict) -> dict:
     try:
-        x0, y0 = click_data['points'][0]['x'], click_data['points'][0]['y']
+        click = click_data['points'][0]['x'], click_data['points'][0]['y']
     except TypeError:
-        x0, y0 = -1, -1
+        click = (-1, -1)
     scene = get_scene(scene_dict)
-    im = render_scene(scene=scene, w=resolution, h=resolution, x0=x0, y0=y0)
+    im = render_scene(scene=scene, view_size=(resolution, resolution), click=click)
     return imshow(im)
 
 
@@ -133,7 +133,7 @@ def imshow(im: Array) -> dict:
         'data': [
             {
                 'z': im,
-                'type': 'heatmap',
+                'type': 'image',
                 'colorscale': 'Greys',
                 'showscale': False,
                 'hoverinfo': 'none',

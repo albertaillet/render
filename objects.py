@@ -1,5 +1,5 @@
 from jax import numpy as np
-from utils import norm
+from utils import norm, softmax
 
 # typing
 from jax import Array
@@ -9,6 +9,7 @@ from typing import NamedTuple
 class Spheres(NamedTuple):
     pos: Array
     radii: Array
+    color: Array
 
     def sdf(self, p: Array) -> Array:
         return norm(p - self.pos) - self.radii
@@ -17,6 +18,7 @@ class Spheres(NamedTuple):
 class Planes(NamedTuple):
     pos: Array
     normal: Array
+    color: Array
 
     def sdf(self, p: Array) -> Array:
         return np.einsum('i j, i j -> i', p - self.pos, self.normal)
@@ -30,6 +32,11 @@ class Scene(NamedTuple):
         sphere_dists = self.spheres.sdf(p)
         plane_dists = self.planes.sdf(p)
         return np.concatenate([sphere_dists, plane_dists])
+    
+    def color(self, p: Array) -> Array:
+        colors = np.concatenate([self.spheres.color, self.planes.color])
+        dists = self.sdf(p)
+        return softmax(-8.0 * dists) @ colors
 
 
 def get_scene(scene_json: dict) -> Scene:
@@ -62,10 +69,12 @@ def get_scene(scene_json: dict) -> Scene:
             Spheres(
                 pos=np.array([s['position'] for s in spheres]),
                 radii=np.array([s['radius'] for s in spheres]),
+                color=np.array([s['color'] for s in spheres]),
             ),
             Planes(
                 pos=np.array([p['position'] for p in planes]),
                 normal=np.array([p['normal'] for p in planes]),
+                color=np.array([p['color'] for p in planes]),
             ),
         )
     except KeyError as e:
