@@ -81,7 +81,7 @@ app.layout = html.Div(
         ),
         dcc.Store(
             id=SCENE_STORE_ID,
-            data=json.loads(open('scene.json', 'r').read()),
+            data=json.load(open('scene.json', 'r')),
         ),
     ]
 )
@@ -106,7 +106,6 @@ def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
 def save_code_to_store(scene_dict: str) -> tuple[dict, bool]:
     try:
         scene_dict = json.loads(scene_dict)
-        get_scene(scene_dict)
         return scene_dict, False, False, ''
     except (json.JSONDecodeError, ValueError) as e:
         return no_update, True, True, str(e)
