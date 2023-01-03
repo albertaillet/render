@@ -59,11 +59,12 @@ app.layout = html.Div(
         dbc.Offcanvas(
             [
                 dbc.Textarea(
-                    value=open('scene.yml', 'r').read(),
+                    value=open('scenes/scene.yml', 'r').read(),
                     placeholder='Scene data',
                     id=SCENE_EDIT_CODE_ID,
                     size='sm',
                     wrap=True,
+                    required=True,
                     style={
                         'width': '100%',
                         'height': '100%',
@@ -74,7 +75,7 @@ app.layout = html.Div(
                 dbc.Popover(
                     [
                         dbc.PopoverHeader(id=SCENE_EDIT_POPOVERHEADER_ID),
-                        dbc.PopoverBody('', id=SCENE_EDIT_POPOVERBODY_ID),
+                        dbc.PopoverBody(id=SCENE_EDIT_POPOVERBODY_ID),
                     ],
                     target=SCENE_EDIT_CODE_ID,
                     id=SCENE_EDIT_POPOVER_ID,
@@ -87,7 +88,7 @@ app.layout = html.Div(
         ),
         dcc.Store(
             id=SCENE_STORE_ID,
-            data=yaml.load(open('scene.yml', 'r'), yaml.SafeLoader),
+            data=yaml.load(open('scenes/scene.yml', 'r'), yaml.SafeLoader),
         ),
     ]
 )

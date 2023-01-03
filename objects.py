@@ -82,7 +82,7 @@ def check_scene_dict(scene_dict: dict) -> None:
             obj_class = globals()[obj_type + 's']
             if not isinstance(obj, dict):
                 raise TypeError(f'Object must be a dict, not {type(obj)}')
-            
+
             type_hints = get_type_hints(obj_class)
             provided_fields = set(obj.keys())
             required_fields = set(type_hints.keys())
@@ -111,5 +111,5 @@ def check_scene_dict(scene_dict: dict) -> None:
 if __name__ == '__main__':
     from yaml import SafeLoader, load
 
-    scene_dict = load(open('scene.yml', 'r'), SafeLoader)
+    scene_dict = load(open('scenes/scene.yml', 'r'), SafeLoader)
     scene = get_scene(scene_dict)
