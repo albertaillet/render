@@ -1,6 +1,6 @@
 from jax import numpy as np
 from jax import tree_map
-from utils import norm, softmax
+from jax_utils import norm, softmax
 from collections import defaultdict
 
 # typing

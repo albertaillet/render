@@ -1,7 +1,7 @@
 from jax import numpy as np
 from jax import lax, vmap, grad, jit
 from functools import partial
-from utils import norm, normalize, min, softmin
+from jax_utils import norm, normalize, min, softmin
 
 # typing
 from typing import Callable

@@ -3,9 +3,8 @@ from dash import Dash, Input, Output, State, dcc, html, no_update
 import dash_bootstrap_components as dbc
 from render import render_scene
 from objects import check_scene_dict, get_scene
+from plotly_utils import imshow
 
-# typing
-from jax import Array
 
 RESOLUTION_SLIDER_ID = 'resolution-slider'
 SCENE_GRAPH_ID = 'scene-graph'
@@ -47,6 +46,7 @@ app.layout = html.Div(
         ),
         html.Center(
             dcc.Graph(
+                figure=imshow([]),
                 id=SCENE_GRAPH_ID,
                 config={
                     'displayModeBar': False,
@@ -115,7 +115,7 @@ def save_code_to_store(scene_yml_str: str) -> tuple[dict, bool]:
         scene_dict = yaml.load(scene_yml_str, Loader=yaml.SafeLoader)
         check_scene_dict(scene_dict)
         return scene_dict, False, False, no_update, no_update
-    except (yaml.YAMLError, ValueError, TypeError) as e:
+    except Exception as e:
         return no_update, True, True, type(e).__name__, str(e)
 
 
@@ -133,44 +133,6 @@ def render(resolution: int, click_data: dict, scene_dict: dict) -> dict:
     scene = get_scene(scene_dict)
     im = render_scene(scene=scene, view_size=(resolution, resolution), click=click)
     return imshow(im)
-
-
-def imshow(im: Array) -> dict:
-    return {
-        'data': [
-            {
-                'z': im,
-                'type': 'image',
-                'colorscale': 'Greys',
-                'showscale': False,
-                'hoverinfo': 'none',
-            }
-        ],
-        'layout': {
-            'xaxis': {
-                'showgrid': False,
-                'zeroline': False,
-                'showticklabels': False,
-                'scaleanchor': 'y',
-                'scaleratio': 1,
-            },
-            'yaxis': {
-                'showgrid': False,
-                'zeroline': False,
-                'showticklabels': False,
-            },
-            'plot_bgcolor': 'rgba(0,0,0,0)',
-            'paper_bgcolor': 'rgba(0,0,0,0)',
-            'margin': {
-                'l': 0,
-                'r': 0,
-                'b': 0,
-                't': 0,
-            },
-            'dragmode': False,
-            'height': '100%',
-        },
-    }
 
 
 if __name__ == '__main__':
