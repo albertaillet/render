@@ -4,7 +4,7 @@ from functools import partial
 from jax_utils import norm, normalize, min, softmin
 
 # typing
-from typing import Callable
+from typing import Callable, Tuple
 from jax import Array
 from objects import Scene
 
@@ -67,7 +67,7 @@ LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 @partial(jit, static_argnames=('view_size'))
 def render_scene(
     scene: Scene,
-    view_size: tuple[int, int],
+    view_size: Tuple[int, int],
     click: Array,
     light_dir: Array = LIGHT_DIR,
     camera_pos: Array = CAMERA_POS,

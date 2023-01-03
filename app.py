@@ -5,6 +5,8 @@ from render import render_scene
 from objects import check_scene_dict, get_scene
 from plotly_utils import imshow
 
+# typing
+from typing import Tuple
 
 RESOLUTION_SLIDER_ID = 'resolution-slider'
 SCENE_GRAPH_ID = 'scene-graph'
@@ -111,7 +113,7 @@ def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
     Output(SCENE_EDIT_POPOVERBODY_ID, 'children'),
     Input(SCENE_EDIT_CODE_ID, 'value'),
 )
-def save_code_to_store(scene_yml_str: str) -> tuple[dict, bool]:
+def save_code_to_store(scene_yml_str: str) -> Tuple[dict, bool]:
     try:
         scene_dict = yaml.load(scene_yml_str, Loader=yaml.SafeLoader)
         check_scene_dict(scene_dict)

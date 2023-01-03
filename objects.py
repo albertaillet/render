@@ -5,7 +5,7 @@ from collections import defaultdict
 
 # typing
 from jax import Array
-from typing import NamedTuple, Sequence, Union, Any, get_type_hints
+from typing import NamedTuple, Tuple, Sequence, Union, Any, get_type_hints
 
 Objects = NamedTuple
 Vector = Union[Array, Sequence]
@@ -32,7 +32,7 @@ class Planes(Objects):
 
 
 class Scene(NamedTuple):
-    objects: tuple[Objects, ...]
+    objects: Tuple[Objects, ...]
 
     def sdf(self, p: Array) -> Array:
         return np.concatenate([o.sdf(p) for o in self.objects])
