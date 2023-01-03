@@ -16,7 +16,7 @@ def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
     return lax.fori_loop(0, n_steps, march_step, p0)
 
 
-def camera_rays(forward: Array, view_size: tuple[int, int], fx: float = 0.6) -> Array:
+def camera_rays(forward: Array, view_size: Tuple[int, int], fx: float = 0.6) -> Array:
     right = np.cross(forward, WORLD_UP)
     down = np.cross(right, forward)
     R = normalize(np.vstack([right, down, forward]))

@@ -10,7 +10,7 @@ from typing import NamedTuple, Tuple, Sequence, Union, Any, get_type_hints
 Objects = NamedTuple
 Vector = Union[Array, Sequence]
 Color = Union[Array, Sequence, str]
-Scalar = Union[float, Array]
+Scalar = Union[Array, float, int]
 
 
 class Spheres(Objects):
