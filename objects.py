@@ -1,6 +1,6 @@
 from jax import numpy as np
 from jax import tree_map
-from jax_utils import norm, softmax
+from utils.linalg import norm, softmax
 from collections import defaultdict
 
 # typing
@@ -58,6 +58,20 @@ def get_scene(scene_dict: dict) -> Scene:
     for outer_obj_dict in scene_dict:
         for obj_type, obj in outer_obj_dict.items():  # there should only be one key
             object_dicts[obj_type].append(obj)
+
+    for obj_type, objs in object_dicts.items():
+        while len(objs) % 5 != 0:
+            # pad with objects to multiples of 5:
+            if obj_type == 'Sphere':
+                objs.append({'position': [0, -1_000, 0], 'radius': 0, 'color': [1, 0, 0]})
+            elif obj_type == 'Plane':
+                objs.append(
+                    {
+                        'position': [0, -1_000, 0],
+                        'normal': [0, 1, 0],
+                        'color': [1, 0, 0],
+                    }
+                )
 
     objects = []
     for obj_type, objs in object_dicts.items():

@@ -1,7 +1,7 @@
 from jax import numpy as np
 from jax import lax, vmap, grad, jit
 from functools import partial
-from jax_utils import norm, normalize, min, softmin
+from utils.linalg import norm, normalize, min, smoothmin
 
 # typing
 from typing import Callable, Tuple
@@ -78,7 +78,7 @@ def render_scene(
     ray_dir = camera_rays(target_pos - camera_pos, view_size=view_size)
 
     def sdf(p: Array) -> Array:
-        return softmin(scene.sdf(p))
+        return smoothmin(scene.sdf(p))
 
     hit_pos = vmap(partial(raymarch, sdf, camera_pos))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)

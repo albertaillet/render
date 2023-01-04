@@ -1,5 +1,4 @@
-from jax import numpy as np
-from jax.nn import logsumexp, softmax
+from jax import nn, numpy as np
 
 # typing
 from jax import Array
@@ -17,5 +16,9 @@ def min(x: Array, axis: int = -1, keepdims: bool = False) -> Array:
     return np.min(x, axis=axis, keepdims=keepdims)
 
 
-def softmin(x: Array, c: float = 8.0, axis: int = -1, keepdims: bool = False) -> Array:
-    return -logsumexp(-c * x, axis=axis, keepdims=keepdims) / c
+def smoothmin(x: Array, c: float = 8.0, **kwargs) -> Array:
+    return -nn.logsumexp(-c * x, **kwargs) / c
+
+
+def softmax(x: Array, *args, **kwargs) -> Array:
+    return nn.softmax(x, *args, **kwargs)

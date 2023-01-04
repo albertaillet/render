@@ -1,9 +1,9 @@
 import yaml
 from dash import Dash, Input, Output, State, dcc, html, no_update
 import dash_bootstrap_components as dbc
-from render import render_scene
+from raymarch import render_scene
 from objects import check_scene_dict, get_scene
-from plotly_utils import imshow
+from utils.plot import imshow
 
 # typing
 from typing import Tuple
