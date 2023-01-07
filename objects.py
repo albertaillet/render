@@ -50,7 +50,7 @@ class Scene(NamedTuple):
         return softmax(-8.0 * dists) @ colors
 
 
-def get_scene(scene_dict: dict) -> Scene:
+def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
     '''Create a scene from a dict of the form:
     {
         'width': 800

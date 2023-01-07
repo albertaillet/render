@@ -118,7 +118,7 @@ def render(click_data: dict, scene_dict: dict) -> dict:
     except TypeError:
         click = (-1, -1)
     scene, view_size = get_scene(scene_dict)
-    im = render_scene(scene=scene, view_size=view_size, click=click)
+    im = render_scene(scene, view_size, click)
     return imshow(im)
 
 
