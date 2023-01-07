@@ -68,7 +68,7 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
     '''
 
     def is_leaf(node: Any) -> bool:
-        return isinstance(node, (list, int))
+        return isinstance(node, list)
 
     view_size = scene_dict['width'], scene_dict['height']
     camera_dict = scene_dict['Camera']
