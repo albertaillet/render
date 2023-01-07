@@ -8,7 +8,6 @@ from utils.plot import imshow
 # typing
 from typing import Tuple
 
-RESOLUTION_SLIDER_ID = 'resolution-slider'
 SCENE_GRAPH_ID = 'scene-graph'
 SCENE_STORE_ID = 'scene-store'
 SCENE_EDIT_ACCESS_BUTTON_ID = 'scene-edit-access-button'
@@ -29,20 +28,6 @@ app.layout = html.Div(
         dbc.Container(
             [
                 html.H2('Render'),
-                html.Div(
-                    [
-                        'Resolution',
-                        dcc.Slider(
-                            id=RESOLUTION_SLIDER_ID,
-                            min=2**4,
-                            max=2**7,
-                            step=2,
-                            value=128,
-                            marks={i: str(i) for i in range(2**4, 2**7, 2**4)},
-                            persistence_type='session',
-                        ),
-                    ]
-                ),
                 dbc.Button('Edit Scene', id=SCENE_EDIT_ACCESS_BUTTON_ID, n_clicks=0),
             ]
         ),
@@ -124,17 +109,16 @@ def save_code_to_store(scene_yml_str: str) -> Tuple[dict, bool]:
 
 @app.callback(
     Output(SCENE_GRAPH_ID, 'figure'),
-    Input(RESOLUTION_SLIDER_ID, 'value'),
     Input(SCENE_GRAPH_ID, 'clickData'),
     Input(SCENE_STORE_ID, 'data'),
 )
-def render(resolution: int, click_data: dict, scene_dict: dict) -> dict:
+def render(click_data: dict, scene_dict: dict) -> dict:
     try:
         click = click_data['points'][0]['x'], click_data['points'][0]['y']
     except TypeError:
         click = (-1, -1)
-    scene = get_scene(scene_dict)
-    im = render_scene(scene=scene, view_size=(resolution, resolution), click=click)
+    scene, view_size = get_scene(scene_dict)
+    im = render_scene(scene=scene, view_size=view_size, click=click)
     return imshow(im)
 
 

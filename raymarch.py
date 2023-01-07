@@ -16,8 +16,10 @@ def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
     return lax.fori_loop(0, n_steps, march_step, p0)
 
 
-def camera_rays(forward: Array, view_size: Tuple[int, int], fx: float = 0.6) -> Array:
-    right = np.cross(forward, WORLD_UP)
+def camera_rays(
+    forward: Array, world_up: Array, view_size: Tuple[int, int], fx: float = 0.6
+) -> Array:
+    right = np.cross(forward, world_up)
     down = np.cross(right, forward)
     R = normalize(np.vstack([right, down, forward]))
     w, h = view_size
@@ -58,9 +60,6 @@ def shade_f(
     return surface_color * light + spec
 
 
-WORLD_UP = np.array([0.0, 1.0, 0.0])
-CAMERA_POS = np.array([3.0, 5.0, 3.0])
-TARGET_POS = np.array([0.0, 0.0, 0.0])
 LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 
 
@@ -70,17 +69,16 @@ def render_scene(
     view_size: Tuple[int, int],
     click: Array,
     light_dir: Array = LIGHT_DIR,
-    camera_pos: Array = CAMERA_POS,
-    target_pos: Array = TARGET_POS,
 ) -> Array:
+    camera = scene.camera
     w, h = view_size
     i, j = click
-    ray_dir = camera_rays(target_pos - camera_pos, view_size=view_size)
+    ray_dir = camera_rays(camera.target - camera.position, camera.up, view_size=view_size)
 
     def sdf(p: Array) -> Array:
         return smoothmin(scene.sdf(p))
 
-    hit_pos = vmap(partial(raymarch, sdf, camera_pos))(ray_dir)
+    hit_pos = vmap(partial(raymarch, sdf, camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
     raw_normal = vmap(grad(sdf))(hit_pos)
 

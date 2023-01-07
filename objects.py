@@ -31,8 +31,15 @@ class Planes(Objects):
         return np.einsum('i j, i j -> i', p - self.position, self.normal)
 
 
+class Camera(NamedTuple):
+    up: Vector
+    position: Vector
+    target: Vector
+
+
 class Scene(NamedTuple):
     objects: Tuple[Objects, ...]
+    camera: Camera
 
     def sdf(self, p: Array) -> Array:
         return np.concatenate([o.sdf(p) for o in self.objects])
@@ -45,17 +52,32 @@ class Scene(NamedTuple):
 
 def get_scene(scene_dict: dict) -> Scene:
     '''Create a scene from a dict of the form:
-    scene_dict = [
-        {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
-        {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
-    ]
+    {
+        'width': 800
+        'height': 600
+        'Camera': {
+            'position': [0, 0, 5]
+            'target': [0, 0, 0]
+            'up': [0, 1, 0]
+        }
+        'Objects': [
+            {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
+            {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
+        ]
+    }
     '''
 
     def is_leaf(node: Any) -> bool:
-        return isinstance(node, list)
+        return isinstance(node, (list, int))
+
+    view_size = scene_dict['width'], scene_dict['height']
+    camera_dict = scene_dict['Camera']
+    objects_dict = scene_dict['Objects']
+
+    camera = Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
 
     object_dicts = defaultdict(list)
-    for outer_obj_dict in scene_dict:
+    for outer_obj_dict in objects_dict:
         for obj_type, obj in outer_obj_dict.items():  # there should only be one key
             object_dicts[obj_type].append(obj)
 
@@ -63,7 +85,9 @@ def get_scene(scene_dict: dict) -> Scene:
         while len(objs) % 5 != 0:
             # pad with objects to multiples of 5:
             if obj_type == 'Sphere':
-                objs.append({'position': [0, -1_000, 0], 'radius': 0, 'color': [1, 0, 0]})
+                objs.append(
+                    {'position': [0, -1_000, 0], 'radius': 0, 'color': [1, 0, 0]}
+                )
             elif obj_type == 'Plane':
                 objs.append(
                     {
@@ -76,54 +100,66 @@ def get_scene(scene_dict: dict) -> Scene:
     objects = []
     for obj_type, objs in object_dicts.items():
         transposed_objs = tree_map(lambda *xs: list(xs), *objs, is_leaf=is_leaf)
-        kwargs = tree_map(np.array, transposed_objs, is_leaf=is_leaf)
+        kwargs = tree_map(np.float32, transposed_objs, is_leaf=is_leaf)
         objects.append(globals()[obj_type + 's'](**kwargs))
 
-    return Scene(objects=tuple(objects))
+    return Scene(objects=tuple(objects), camera=camera), view_size
 
 
 def check_scene_dict(scene_dict: dict) -> None:
     '''Check a scene from a dict of the form:
-    scene_dict = [
-        {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
-        {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
-    ]
+    {
+        'width': 800
+        'height': 600
+        'Camera': {
+            'position': [0, 0, 5]
+            'target': [0, 0, 0]
+            'up': [0, 1, 0]
+        }
+        'Objects': [
+            {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
+            {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
+        ]
+    }
     '''
-    for i, outer_obj_dict in enumerate(scene_dict, 1):
+    check_dict_fields(scene_dict.get('Camera'), Camera)
+
+    for outer_obj_dict in scene_dict.get('Objects'):
         for obj_type, obj in outer_obj_dict.items():
-            if obj_type + 's' not in globals():
-                raise ValueError(f'Unknown object type: {obj_type}')
-            obj_class = globals()[obj_type + 's']
-            if not isinstance(obj, dict):
-                raise TypeError(f'Object must be a dict, not {type(obj)}')
+            check_dict_fields(obj, globals()[obj_type + 's'])
 
-            type_hints = get_type_hints(obj_class)
-            provided_fields = set(obj.keys())
-            required_fields = set(type_hints.keys())
-            if provided_fields != required_fields:
-                raise ValueError(
-                    f'Object {i} ({obj_type}) must have fields {required_fields}, not {provided_fields}'
-                )
 
-            for field in obj:
-                if not isinstance(obj[field], type_hints[field]):
+def check_dict_fields(obj: dict, cls: type) -> None:
+    type_hints = get_type_hints(cls)
+
+    if not isinstance(obj, dict):
+        raise TypeError(f'{obj} must be a dict, not {type(obj)}')
+
+    provided_fields = set(obj.keys())
+    required_fields = set(type_hints.keys())
+    if provided_fields != required_fields:
+        raise ValueError(
+            f'{obj} must have fields {required_fields}, not {provided_fields}'
+        )
+
+    for field in obj:
+        if not isinstance(obj[field], type_hints[field]):
+            raise TypeError(
+                f'Field {field} must be of type {type_hints[field]}, not {type(obj[field])}'
+            )
+        if type_hints[field] == Vector:
+            if len(obj[field]) != 3:
+                raise ValueError(f'Field {field} must be a 3-vector, not {obj[field]}')
+            for x in obj[field]:
+                if not isinstance(x, (int, float)):
                     raise TypeError(
-                        f'Field {field} of object {i} ({obj_type}) must be of type {type_hints[field]}, not {type(obj[field])}'
+                        f'Field {field} of object must be a 3-vector of floats, not {obj[field]}'
                     )
-                if type_hints[field] == Vector:
-                    if len(obj[field]) != 3:
-                        raise ValueError(
-                            f'Field {field} of object {i} ({obj_type}) must be a 3-vector, not {obj[field]}'
-                        )
-                    for x in obj[field]:
-                        if not isinstance(x, (int, float)):
-                            raise TypeError(
-                                f'Field {field} of object {i} ({obj_type}) must be a 3-vector of floats, not {obj[field]}'
-                            )
 
 
 if __name__ == '__main__':
     from yaml import SafeLoader, load
 
     scene_dict = load(open('scenes/scene.yml', 'r'), SafeLoader)
+    check_scene_dict(scene_dict)
     scene = get_scene(scene_dict)
