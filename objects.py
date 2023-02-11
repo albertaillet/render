@@ -114,6 +114,9 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
 
 def check_scene_dict(scene_dict: dict) -> None:
     '''Check a scene dict for expected format (see top of file)'''
+    for argname in ('width', 'height'):
+        check_type(argname, scene_dict.get(argname), int)
+
     check_dict_fields(scene_dict.get('Camera'), Camera)
 
     for outer_obj_dict in scene_dict.get('Objects'):
