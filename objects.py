@@ -4,37 +4,44 @@ from utils.linalg import norm, softmax
 from collections import defaultdict
 
 # typing
-from jax import Array
-from typing import NamedTuple, Tuple, Sequence, Union, Any, get_type_hints
+from typeguard import check_type
+from jaxtyping import Array, Float
+from typing import NamedTuple, Tuple, Any, get_type_hints
 
 Objects = NamedTuple
-Vector = Union[Array, Sequence]
-Color = Union[Array, Sequence, str]
-Scalar = Union[Array, float, int]
+Vec3 = Float[Array, '3']
+Vec3s = Float[Array, 'n 3']
+Scalars = Float[Array, 'n']
+
+UNFLATTENED_TYPES = {
+    Vec3: Tuple[float, float, float],
+    Vec3s: Tuple[float, float, float],
+    Scalars: float,
+}
 
 
 class Spheres(Objects):
-    position: Vector
-    radius: Scalar
-    color: Color
+    position: Vec3s
+    radius: Scalars
+    color: Vec3s
 
     def sdf(self, p: Array) -> Array:
         return norm(p - self.position) - self.radius
 
 
 class Planes(Objects):
-    position: Vector
-    normal: Vector
-    color: Color
+    position: Vec3s
+    normal: Vec3s
+    color: Vec3s
 
     def sdf(self, p: Array) -> Array:
         return np.einsum('i j, i j -> i', p - self.position, self.normal)
 
 
 class Camera(NamedTuple):
-    up: Vector
-    position: Vector
-    target: Vector
+    up: Vec3
+    position: Vec3
+    target: Vec3
 
 
 class Scene(NamedTuple):
@@ -81,27 +88,24 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
         for obj_type, obj in outer_obj_dict.items():  # there should only be one key
             object_dicts[obj_type].append(obj)
 
+    # pad with objects to multiples of 5 to avoid recompilation of jitted function
     for obj_type, objs in object_dicts.items():
         while len(objs) % 5 != 0:
-            # pad with objects to multiples of 5:
             if obj_type == 'Sphere':
-                objs.append(
-                    {'position': [0, -1_000, 0], 'radius': 0, 'color': [1, 0, 0]}
-                )
+                objs.append({'position': [0, -100, 0], 'radius': 0, 'color': [1, 0, 0]})
             elif obj_type == 'Plane':
                 objs.append(
-                    {
-                        'position': [0, -1_000, 0],
-                        'normal': [0, 1, 0],
-                        'color': [1, 0, 0],
-                    }
+                    {'position': [0, -100, 0], 'normal': [0, 1, 0], 'color': [1, 0, 0]}
                 )
 
     objects = []
     for obj_type, objs in object_dicts.items():
         transposed_objs = tree_map(lambda *xs: list(xs), *objs, is_leaf=is_leaf)
         kwargs = tree_map(np.float32, transposed_objs, is_leaf=is_leaf)
-        objects.append(globals()[obj_type + 's'](**kwargs))
+        _class = globals()[obj_type + 's']
+        objs = _class(**kwargs)
+        check_type(obj_type, objs, _class)
+        objects.append(objs)
 
     return Scene(objects=tuple(objects), camera=camera), view_size
 
@@ -132,8 +136,7 @@ def check_scene_dict(scene_dict: dict) -> None:
 def check_dict_fields(obj: dict, cls: type) -> None:
     type_hints = get_type_hints(cls)
 
-    if not isinstance(obj, dict):
-        raise TypeError(f'{obj} must be a dict, not {type(obj)}')
+    check_type('obj', obj, dict)
 
     provided_fields = set(obj.keys())
     required_fields = set(type_hints.keys())
@@ -143,23 +146,26 @@ def check_dict_fields(obj: dict, cls: type) -> None:
         )
 
     for field in obj:
-        if not isinstance(obj[field], type_hints[field]):
-            raise TypeError(
-                f'Field {field} must be of type {type_hints[field]}, not {type(obj[field])}'
-            )
-        if type_hints[field] == Vector:
-            if len(obj[field]) != 3:
-                raise ValueError(f'Field {field} must be a 3-vector, not {obj[field]}')
-            for x in obj[field]:
-                if not isinstance(x, (int, float)):
-                    raise TypeError(
-                        f'Field {field} of object must be a 3-vector of floats, not {obj[field]}'
-                    )
+        # cast lists to tuples to be able to check length
+        value = tuple(obj[field]) if isinstance(obj[field], list) else obj[field]
+        check_type(field, value, UNFLATTENED_TYPES[type_hints[field]])
 
 
 if __name__ == '__main__':
     from yaml import SafeLoader, load
 
     scene_dict = load(open('scenes/scene.yml', 'r'), SafeLoader)
+
+    n = 10
+    pos = np.zeros((n, 3))
+    check_type('pos', pos, Vec3s)
+    radius = np.zeros((n))
+    check_type('radius', radius, Scalars)
+    color = np.zeros((n, 3))
+    check_type('color', color, Vec3s)
+    obj = Spheres(position=pos, radius=radius, color=color)
+    check_type('obj', obj, Spheres)
+
     check_scene_dict(scene_dict)
-    scene = get_scene(scene_dict)
+    scene, view_size = get_scene(scene_dict)
+    check_type('scene', scene, Scene)
