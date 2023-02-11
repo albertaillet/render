@@ -1,3 +1,19 @@
+'''Objects for raymarching
+Expected scene dict format:
+{
+    'width': 800
+    'height': 600
+    'Camera': {
+        'position': [0, 0, 5]
+        'target': [0, 0, 0]
+        'up': [0, 1, 0]
+    }
+    'Objects': [
+        {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
+        {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
+    ]
+}
+'''
 from jax import numpy as np
 from jax import tree_map
 from utils.linalg import norm, softmax
@@ -58,21 +74,7 @@ class Scene(NamedTuple):
 
 
 def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
-    '''Create a scene from a dict of the form:
-    {
-        'width': 800
-        'height': 600
-        'Camera': {
-            'position': [0, 0, 5]
-            'target': [0, 0, 0]
-            'up': [0, 1, 0]
-        }
-        'Objects': [
-            {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
-            {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
-        ]
-    }
-    '''
+    '''Create a scene from a dict of expected format (see top of file)'''
 
     def is_leaf(node: Any) -> bool:
         return isinstance(node, list)
@@ -111,21 +113,7 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
 
 
 def check_scene_dict(scene_dict: dict) -> None:
-    '''Check a scene from a dict of the form:
-    {
-        'width': 800
-        'height': 600
-        'Camera': {
-            'position': [0, 0, 5]
-            'target': [0, 0, 0]
-            'up': [0, 1, 0]
-        }
-        'Objects': [
-            {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
-            {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
-        ]
-    }
-    '''
+    '''Check a scene dict for expected format (see top of file)'''
     check_dict_fields(scene_dict.get('Camera'), Camera)
 
     for outer_obj_dict in scene_dict.get('Objects'):
