@@ -33,7 +33,7 @@ def setup(app) -> None:
             ),
             html.Center(
                 dcc.Graph(
-                    figure=imshow([]),
+                    figure=imshow(),
                     id=SCENE_GRAPH_ID,
                     config={
                         'displayModeBar': False,
@@ -110,13 +110,16 @@ def setup(app) -> None:
         Input(SCENE_STORE_ID, 'data'),
     )
     def render(click_data: dict, scene_dict: dict) -> dict:
+        scene, view_size = get_scene(scene_dict)
         try:
-            click = click_data['points'][0]['x'], click_data['points'][0]['y']
+            click = (
+                click_data['points'][0]['x'],
+                view_size[1] - click_data['points'][0]['y'],
+            )
         except TypeError:
             click = (-1, -1)
-        scene, view_size = get_scene(scene_dict)
         im = render_scene(scene, view_size, click)
-        return imshow(im)
+        return imshow(im, view_size)
 
 
 if __name__ == '__main__':
