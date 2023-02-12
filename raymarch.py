@@ -67,13 +67,15 @@ LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 def render_scene(
     scene: Scene,
     view_size: Tuple[int, int],
-    click: Array,
+    click: Tuple[int, int],
     light_dir: Array = LIGHT_DIR,
 ) -> Array:
     camera = scene.camera
     w, h = view_size
     i, j = click
-    ray_dir = camera_rays(camera.target - camera.position, camera.up, view_size=view_size)
+    ray_dir = camera_rays(
+        camera.target - camera.position, camera.up, view_size=view_size
+    )
 
     def sdf(p: Array) -> Array:
         return smoothmin(scene.sdf(p))
@@ -93,6 +95,6 @@ def render_scene(
 
     def to_rgb_image(img: Array) -> Array:
         img = np.uint8(255.0 * img.clip(0.0, 1.0))
-        return img.reshape((w, h, 3)).transpose((1, 0, 2))[::-1]
+        return img.reshape((w, h, 3)).transpose((1, 0, 2))
 
     return to_rgb_image(color)
