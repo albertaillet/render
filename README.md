@@ -14,6 +14,10 @@ Run the app:
 python app.py
 ```
 
+Test it out in colab:
+
+<a href="https://colab.research.google.com/github/albertaillet/render/blob/main/colab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
 ## References
 
 - Simple 3D visualization with JAX raycasting, Alexander Mordvintsev, September 23, 2022, ([link](
