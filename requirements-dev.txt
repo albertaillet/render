@@ -10,3 +10,4 @@ jax==0.4.1
 jaxlib==0.4.1
 jaxtyping==0.2.11
 PyYAML==6.0
+Pillow==9.4.0
