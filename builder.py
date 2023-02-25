@@ -1,4 +1,4 @@
-'''Objects for raymarching
+'''Build Scene for raymarching from a dict
 Expected scene dict format:
 {
     'width': 800
@@ -14,66 +14,27 @@ Expected scene dict format:
     ]
 }
 '''
-from jax import numpy as np
-from jax import tree_map
-from utils.linalg import norm, softmax
+import raymarch as rm
+from jax import tree_map, numpy as np
 from collections import defaultdict
 
 # typing
 from typeguard import check_type
-from jaxtyping import Array, Float
-from typing import NamedTuple, Tuple, Any, get_type_hints
-
-Objects = NamedTuple
-Vec3 = Float[Array, '3']
-Vec3s = Float[Array, 'n 3']
-Scalars = Float[Array, 'n']
+from typing import Tuple, Any, get_type_hints
 
 UNFLATTENED_TYPES = {
-    Vec3: Tuple[float, float, float],
-    Vec3s: Tuple[float, float, float],
-    Scalars: float,
+    rm.Vec3: Tuple[float, float, float],
+    rm.Vec3s: Tuple[float, float, float],
+    rm.Scalars: float,
 }
 
 
-class Spheres(Objects):
-    position: Vec3s
-    radius: Scalars
-    color: Vec3s
-
-    def sdf(self, p: Array) -> Array:
-        return norm(p - self.position) - self.radius
+def get_class(obj_type: str) -> Any:
+    '''Get the class for an object type'''
+    return getattr(rm, obj_type + 's')
 
 
-class Planes(Objects):
-    position: Vec3s
-    normal: Vec3s
-    color: Vec3s
-
-    def sdf(self, p: Array) -> Array:
-        return np.sum((p - self.position) * self.normal, axis=1)
-
-
-class Camera(NamedTuple):
-    up: Vec3
-    position: Vec3
-    target: Vec3
-
-
-class Scene(NamedTuple):
-    objects: Tuple[Objects, ...]
-    camera: Camera
-
-    def sdf(self, p: Array) -> Array:
-        return np.concatenate([o.sdf(p) for o in self.objects])
-
-    def color(self, p: Array) -> Array:
-        dists = self.sdf(p)
-        colors = np.concatenate([o.color for o in self.objects])
-        return softmax(-8.0 * dists) @ colors
-
-
-def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
+def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
     '''Create a scene from a dict of expected format (see top of file)'''
 
     def is_leaf(node: Any) -> bool:
@@ -83,7 +44,7 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
     camera_dict = scene_dict['Camera']
     objects_dict = scene_dict['Objects']
 
-    camera = Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
+    camera = rm.Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
 
     object_dicts = defaultdict(list)
     for outer_obj_dict in objects_dict:
@@ -104,12 +65,12 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
     for obj_type, objs in object_dicts.items():
         transposed_objs = tree_map(lambda *xs: list(xs), *objs, is_leaf=is_leaf)
         kwargs = tree_map(np.float32, transposed_objs, is_leaf=is_leaf)
-        _class = globals()[obj_type + 's']
+        _class = get_class(obj_type)
         objs = _class(**kwargs)
         check_type(obj_type, objs, _class)
         objects.append(objs)
 
-    return Scene(objects=tuple(objects), camera=camera), view_size
+    return rm.Scene(objects=tuple(objects), camera=camera), view_size
 
 
 def check_scene_dict(scene_dict: dict) -> None:
@@ -118,11 +79,11 @@ def check_scene_dict(scene_dict: dict) -> None:
         check_type(argname, scene_dict.get(argname), int)
         assert scene_dict[argname] > 0, f'{argname} must be positive'
 
-    check_dict_fields(scene_dict.get('Camera'), Camera)
+    check_dict_fields(scene_dict.get('Camera'), rm.Camera)
 
     for outer_obj_dict in scene_dict.get('Objects'):
         for obj_type, obj in outer_obj_dict.items():
-            check_dict_fields(obj, globals()[obj_type + 's'])
+            check_dict_fields(obj, get_class(obj_type))
 
 
 def check_dict_fields(obj: dict, cls: type) -> None:
@@ -130,12 +91,10 @@ def check_dict_fields(obj: dict, cls: type) -> None:
 
     check_type('obj', obj, dict)
 
-    provided_fields = set(obj.keys())
-    required_fields = set(type_hints.keys())
-    if provided_fields != required_fields:
-        raise ValueError(
-            f'{obj} must have fields {required_fields}, not {provided_fields}'
-        )
+    provided = set(obj.keys())
+    required = set(type_hints.keys())
+    if provided != required:
+        raise ValueError(f'{obj} has {provided} fields and should have {required}')
 
     for field in obj:
         # cast lists to tuples to be able to check length
@@ -150,14 +109,14 @@ if __name__ == '__main__':
 
     n = 10
     pos = np.zeros((n, 3))
-    check_type('pos', pos, Vec3s)
+    check_type('pos', pos, rm.Vec3s)
     radius = np.zeros((n))
-    check_type('radius', radius, Scalars)
+    check_type('radius', radius, rm.Scalars)
     color = np.zeros((n, 3))
-    check_type('color', color, Vec3s)
-    obj = Spheres(position=pos, radius=radius, color=color)
-    check_type('obj', obj, Spheres)
+    check_type('color', color, rm.Vec3s)
+    obj = rm.Spheres(position=pos, radius=radius, color=color)
+    check_type('obj', obj, rm.Spheres)
 
     check_scene_dict(scene_dict)
-    scene, view_size = get_scene(scene_dict)
-    check_type('scene', scene, Scene)
+    scene, view_size = build_scene(scene_dict)
+    check_type('scene', scene, rm.Scene)

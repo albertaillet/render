@@ -1,12 +1,66 @@
 from jax import numpy as np
 from jax import lax, vmap, grad, jit
 from functools import partial
-from utils.linalg import norm, normalize, min, smoothmin
+from utils.linalg import norm, normalize, min, smoothmin, softmax
 
 # typing
-from typing import Callable, Tuple
-from jax import Array
-from objects import Scene
+from typing import Callable, Tuple, NamedTuple
+from jaxtyping import Array, Float
+
+Vec3 = Float[Array, '3']
+Vec3s = Float[Array, 'n 3']
+Scalars = Float[Array, 'n']
+
+
+class Spheres(NamedTuple):
+    position: Vec3s
+    radius: Scalars
+    color: Vec3s
+
+    def sdf(self, p: Array) -> Array:
+        return norm(p - self.position) - self.radius
+
+
+class Planes(NamedTuple):
+    position: Vec3s
+    normal: Vec3s
+    color: Vec3s
+
+    def sdf(self, p: Array) -> Array:
+        return np.sum((p - self.position) * self.normal, axis=1)
+
+
+class Camera(NamedTuple):
+    up: Vec3
+    position: Vec3
+    target: Vec3
+
+    def rays(self, view_size: Tuple[int, int], fx: float = 0.6) -> Array:
+        forward = self.target - self.position
+        right = np.cross(forward, self.up)
+        down = np.cross(right, forward)
+        R = normalize(np.vstack([right, down, forward]))
+        w, h = view_size
+        fy = fx / w * h
+        x = np.linspace(-fx, fx, w)
+        y = np.linspace(-fy, fy, h)
+        x, y = np.meshgrid(x, y, indexing='ij')
+        x, y = x.flatten(), y.flatten()
+        rays = np.stack([x, y, np.ones(w * h)], axis=-1)
+        return normalize(rays) @ R
+
+
+class Scene(NamedTuple):
+    objects: Tuple[NamedTuple, ...]
+    camera: Camera
+
+    def sdf(self, p: Array) -> Array:
+        return np.concatenate([o.sdf(p) for o in self.objects])
+
+    def color(self, p: Array) -> Array:
+        dists = self.sdf(p)
+        colors = np.concatenate([o.color for o in self.objects])
+        return softmax(-8.0 * dists) @ colors
 
 
 def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
@@ -14,22 +68,6 @@ def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
         return p + sdf(p) * dir
 
     return lax.fori_loop(0, n_steps, march_step, p0)
-
-
-def camera_rays(
-    forward: Array, world_up: Array, view_size: Tuple[int, int], fx: float = 0.6
-) -> Array:
-    right = np.cross(forward, world_up)
-    down = np.cross(right, forward)
-    R = normalize(np.vstack([right, down, forward]))
-    w, h = view_size
-    fy = fx / w * h
-    x = np.linspace(-fx, fx, w)
-    y = np.linspace(-fy, fy, h)
-    x, y = np.meshgrid(x, y, indexing='ij')
-    x, y = x.flatten(), y.flatten()
-    rays = np.stack([x, y, np.ones(w * h)], axis=-1)
-    return normalize(rays) @ R
 
 
 def cast_shadow(
@@ -70,17 +108,14 @@ def render_scene(
     click: Tuple[int, int],
     light_dir: Array = LIGHT_DIR,
 ) -> Array:
-    camera = scene.camera
     w, h = view_size
     i, j = click
-    ray_dir = camera_rays(
-        camera.target - camera.position, camera.up, view_size=view_size
-    )
+    ray_dir = scene.camera.rays(view_size)
 
     def sdf(p: Array) -> Array:
         return smoothmin(scene.sdf(p))
 
-    hit_pos = vmap(partial(raymarch, sdf, camera.position))(ray_dir)
+    hit_pos = vmap(partial(raymarch, sdf, scene.camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
     raw_normal = vmap(grad(sdf))(hit_pos)
 
