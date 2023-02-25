@@ -51,4 +51,4 @@ def imshow(im: Optional[Array] = None, view_size: Tuple[int, int] = (0, 0)) -> d
 def to_base_64(im: Array) -> str:
     with io.BytesIO() as buffer:
         Image.fromarray(np.asarray(im)).save(buffer, format='png')
-        return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
+        return 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode()

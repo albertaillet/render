@@ -51,7 +51,7 @@ class Planes(Objects):
     color: Vec3s
 
     def sdf(self, p: Array) -> Array:
-        return np.einsum('i j, i j -> i', p - self.position, self.normal)
+        return np.sum((p - self.position) * self.normal, axis=1)
 
 
 class Camera(NamedTuple):
@@ -90,9 +90,9 @@ def get_scene(scene_dict: dict) -> Tuple[Scene, Tuple[int, int]]:
         for obj_type, obj in outer_obj_dict.items():  # there should only be one key
             object_dicts[obj_type].append(obj)
 
-    # pad with objects to multiples of 5 to avoid recompilation of jitted function
+    # pad with objects to powers of 2 to avoid recompilation of jitted function
     for obj_type, objs in object_dicts.items():
-        while len(objs) % 5 != 0:
+        while np.log2(len(objs)) % 1 != 0:
             if obj_type == 'Sphere':
                 objs.append({'position': [0, -100, 0], 'radius': 0, 'color': [1, 0, 0]})
             elif obj_type == 'Plane':
@@ -116,6 +116,7 @@ def check_scene_dict(scene_dict: dict) -> None:
     '''Check a scene dict for expected format (see top of file)'''
     for argname in ('width', 'height'):
         check_type(argname, scene_dict.get(argname), int)
+        assert scene_dict[argname] > 0, f'{argname} must be positive'
 
     check_dict_fields(scene_dict.get('Camera'), Camera)
 

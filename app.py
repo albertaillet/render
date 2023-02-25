@@ -96,7 +96,7 @@ def setup(app) -> None:
         Output(SCENE_EDIT_POPOVERBODY_ID, 'children'),
         Input(SCENE_EDIT_CODE_ID, 'value'),
     )
-    def save_code_to_store(scene_yml_str: str) -> Tuple[dict, bool]:
+    def save_code_to_store(scene_yml_str: str) -> Tuple[dict, bool, bool, str, str]:
         try:
             scene_dict = yaml.load(scene_yml_str, Loader=yaml.SafeLoader)
             check_scene_dict(scene_dict)
