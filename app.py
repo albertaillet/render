@@ -2,7 +2,7 @@ import yaml
 from dash import Dash, Input, Output, State, dcc, html, no_update
 import dash_bootstrap_components as dbc
 from raymarch import render_scene
-from objects import check_scene_dict, get_scene
+from builder import check_scene_dict, build_scene
 from utils.plot import imshow
 
 # typing
@@ -110,7 +110,7 @@ def setup(app) -> None:
         Input(SCENE_STORE_ID, 'data'),
     )
     def render(click_data: dict, scene_dict: dict) -> dict:
-        scene, view_size = get_scene(scene_dict)
+        scene, view_size = build_scene(scene_dict)
         try:
             click = (
                 click_data['points'][0]['x'],

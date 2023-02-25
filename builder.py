@@ -34,7 +34,7 @@ def get_class(obj_type: str) -> Any:
     return getattr(rm, obj_type + 's')
 
 
-def get_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
+def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
     '''Create a scene from a dict of expected format (see top of file)'''
 
     def is_leaf(node: Any) -> bool:
@@ -118,5 +118,5 @@ if __name__ == '__main__':
     check_type('obj', obj, rm.Spheres)
 
     check_scene_dict(scene_dict)
-    scene, view_size = get_scene(scene_dict)
+    scene, view_size = build_scene(scene_dict)
     check_type('scene', scene, rm.Scene)
