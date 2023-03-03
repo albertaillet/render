@@ -112,10 +112,8 @@ def setup(app) -> None:
     def render(click_data: dict, scene_dict: dict) -> dict:
         scene, view_size = build_scene(scene_dict)
         try:
-            click = (
-                click_data['points'][0]['x'],
-                view_size[1] - click_data['points'][0]['y'],
-            )
+            point = click_data['points'][0]
+            click = point['y'], point['x']
         except TypeError:
             click = (-1, -1)
         im = render_scene(scene, view_size, click)
