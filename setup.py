@@ -58,12 +58,11 @@ def setup(app) -> None:
                         placeholder='Scene data',
                         id=EDIT_CODE_ID,
                         size='sm',
-                        wrap=True,
                         required=True,
                         style={
                             'width': '100%',
                             'height': '100%',
-                            'background-color': '#343a40',
+                            'backgroundColor': '#343a40',
                             'color': '#fff',
                         },
                     ),
@@ -74,7 +73,6 @@ def setup(app) -> None:
                         ],
                         target=EDIT_CODE_ID,
                         id=EDIT_POPOVER_ID,
-                        is_open=False,
                     ),
                 ],
                 autofocus=True,
@@ -87,14 +85,6 @@ def setup(app) -> None:
             ),
         ]
     )
-
-    @app.callback(
-        Output(EDIT_OFFCANVAS_ID, 'is_open'),
-        Input(EDIT_ACCESS_BUTTON_ID, 'n_clicks'),
-        State(EDIT_OFFCANVAS_ID, 'is_open'),
-    )
-    def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
-        return not is_open if n_clicks else is_open
 
     @app.callback(
         Output(STORE_ID, 'data'),
@@ -126,6 +116,13 @@ def setup(app) -> None:
             click = (-1, -1)
         im = render_scene(scene, view_size, click)
         return imshow(im, view_size)
+
+    clientside_callback(
+        '(n_clicks, is_open) => (n_clicks > 0) ? !is_open : is_open',
+        Output(EDIT_OFFCANVAS_ID, 'is_open'),
+        Input(EDIT_ACCESS_BUTTON_ID, 'n_clicks'),
+        State(EDIT_OFFCANVAS_ID, 'is_open'),
+    )
 
     clientside_callback(
         '''
