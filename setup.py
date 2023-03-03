@@ -1,5 +1,5 @@
 import yaml
-from dash import Input, Output, State, dcc, html, no_update
+from dash import Input, Output, State, dcc, html, clientside_callback, no_update
 import dash_bootstrap_components as dbc
 from raymarch import render_scene
 from builder import check_scene_dict, build_scene
@@ -8,14 +8,15 @@ from utils.plot import imshow
 # typing
 from typing import Tuple
 
-SCENE_GRAPH_ID = 'scene-graph'
-SCENE_STORE_ID = 'scene-store'
-SCENE_EDIT_ACCESS_BUTTON_ID = 'scene-edit-access-button'
-SCENE_EDIT_OFFCANVAS_ID = 'scene-edit-offcanvas'
-SCENE_EDIT_CODE_ID = 'scene-edit-code'
-SCENE_EDIT_POPOVER_ID = 'scene-edit-popover'
-SCENE_EDIT_POPOVERHEADER_ID = 'scene-edit-popoverheader'
-SCENE_EDIT_POPOVERBODY_ID = 'scene-edit-popoverbody'
+GRAPH_ID = 'graph'
+GRAPH_DOWNLOAD_BUTTON_ID = 'graph-download-button'
+STORE_ID = 'store'
+EDIT_ACCESS_BUTTON_ID = 'edit-access-button'
+EDIT_OFFCANVAS_ID = 'edit-offcanvas'
+EDIT_CODE_ID = 'edit-code'
+EDIT_POPOVER_ID = 'edit-popover'
+EDIT_POPOVERHEADER_ID = 'edit-popoverheader'
+EDIT_POPOVERBODY_ID = 'edit-popoverbody'
 
 
 def setup(app) -> None:
@@ -27,14 +28,21 @@ def setup(app) -> None:
                 [
                     html.H2('Render'),
                     dbc.Button(
-                        'Edit Scene', id=SCENE_EDIT_ACCESS_BUTTON_ID, n_clicks=0
+                        'Edit Scene',
+                        id=EDIT_ACCESS_BUTTON_ID,
+                        style={'margin': '10px 5px 10px 5px'},
+                    ),
+                    dbc.Button(
+                        'Download Image',
+                        id=GRAPH_DOWNLOAD_BUTTON_ID,
+                        style={'margin': '10px 5px 10px 5px'},
                     ),
                 ]
             ),
             html.Center(
                 dcc.Graph(
                     figure=imshow(),
-                    id=SCENE_GRAPH_ID,
+                    id=GRAPH_ID,
                     config={
                         'displayModeBar': False,
                         'scrollZoom': False,
@@ -48,7 +56,7 @@ def setup(app) -> None:
                     dbc.Textarea(
                         value=open('scenes/scene.yml', 'r').read(),
                         placeholder='Scene data',
-                        id=SCENE_EDIT_CODE_ID,
+                        id=EDIT_CODE_ID,
                         size='sm',
                         wrap=True,
                         required=True,
@@ -61,40 +69,40 @@ def setup(app) -> None:
                     ),
                     dbc.Popover(
                         [
-                            dbc.PopoverHeader(id=SCENE_EDIT_POPOVERHEADER_ID),
-                            dbc.PopoverBody(id=SCENE_EDIT_POPOVERBODY_ID),
+                            dbc.PopoverHeader(id=EDIT_POPOVERHEADER_ID),
+                            dbc.PopoverBody(id=EDIT_POPOVERBODY_ID),
                         ],
-                        target=SCENE_EDIT_CODE_ID,
-                        id=SCENE_EDIT_POPOVER_ID,
+                        target=EDIT_CODE_ID,
+                        id=EDIT_POPOVER_ID,
                         is_open=False,
                     ),
                 ],
                 autofocus=True,
-                id=SCENE_EDIT_OFFCANVAS_ID,
+                id=EDIT_OFFCANVAS_ID,
                 title='Edit Scene',
             ),
             dcc.Store(
-                id=SCENE_STORE_ID,
+                id=STORE_ID,
                 data=yaml.load(open('scenes/scene.yml', 'r'), yaml.SafeLoader),
             ),
         ]
     )
 
     @app.callback(
-        Output(SCENE_EDIT_OFFCANVAS_ID, 'is_open'),
-        Input(SCENE_EDIT_ACCESS_BUTTON_ID, 'n_clicks'),
-        State(SCENE_EDIT_OFFCANVAS_ID, 'is_open'),
+        Output(EDIT_OFFCANVAS_ID, 'is_open'),
+        Input(EDIT_ACCESS_BUTTON_ID, 'n_clicks'),
+        State(EDIT_OFFCANVAS_ID, 'is_open'),
     )
     def toggle_edit_offcanvas(n_clicks: int, is_open: bool) -> bool:
         return not is_open if n_clicks else is_open
 
     @app.callback(
-        Output(SCENE_STORE_ID, 'data'),
-        Output(SCENE_EDIT_CODE_ID, 'invalid'),
-        Output(SCENE_EDIT_POPOVER_ID, 'is_open'),
-        Output(SCENE_EDIT_POPOVERHEADER_ID, 'children'),
-        Output(SCENE_EDIT_POPOVERBODY_ID, 'children'),
-        Input(SCENE_EDIT_CODE_ID, 'value'),
+        Output(STORE_ID, 'data'),
+        Output(EDIT_CODE_ID, 'invalid'),
+        Output(EDIT_POPOVER_ID, 'is_open'),
+        Output(EDIT_POPOVERHEADER_ID, 'children'),
+        Output(EDIT_POPOVERBODY_ID, 'children'),
+        Input(EDIT_CODE_ID, 'value'),
     )
     def save_code_to_store(scene_yml_str: str) -> Tuple[dict, bool, bool, str, str]:
         try:
@@ -105,9 +113,9 @@ def setup(app) -> None:
             return no_update, True, True, type(e).__name__, str(e)
 
     @app.callback(
-        Output(SCENE_GRAPH_ID, 'figure'),
-        Input(SCENE_GRAPH_ID, 'clickData'),
-        Input(SCENE_STORE_ID, 'data'),
+        Output(GRAPH_ID, 'figure'),
+        Input(GRAPH_ID, 'clickData'),
+        Input(STORE_ID, 'data'),
     )
     def render(click_data: dict, scene_dict: dict) -> dict:
         scene, view_size = build_scene(scene_dict)
@@ -118,3 +126,19 @@ def setup(app) -> None:
             click = (-1, -1)
         im = render_scene(scene, view_size, click)
         return imshow(im, view_size)
+
+    clientside_callback(
+        '''
+        function(n_clicks, figure){
+            if(n_clicks > 0){
+                let dlink = document.createElement('a');
+                dlink.href = figure.data[0].source;
+                dlink.download = 'render.png';
+                dlink.click();
+            }
+        }
+        ''',
+        Output(GRAPH_DOWNLOAD_BUTTON_ID, 'n_clicks'),
+        Input(GRAPH_DOWNLOAD_BUTTON_ID, 'n_clicks'),
+        State(GRAPH_ID, 'figure'),
+    )
