@@ -122,14 +122,10 @@ def render_scene(
     light_dir = np.where(i == -1, light_dir, raw_normal[i * w + j])
     light_dir = normalize(light_dir)
     shadow = vmap(partial(cast_shadow, sdf, light_dir))(hit_pos)
-    color = vmap(partial(shade_f, light_dir=light_dir))(
+    image = vmap(partial(shade_f, light_dir=light_dir))(
         surface_color, raw_normal, ray_dir, shadow
     )
 
-    color = color ** (1.0 / 2.2)  # gamma correction
+    image = image ** (1.0 / 2.2)  # gamma correction
 
-    def to_rgb_image(img: Array) -> Array:
-        img = np.uint8(255.0 * img.clip(0.0, 1.0))
-        return img.reshape((h, w, 3))
-
-    return to_rgb_image(color)
+    return image.reshape((h, w, 3))
