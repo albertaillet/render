@@ -40,7 +40,7 @@ def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
     def is_leaf(node: Any) -> bool:
         return isinstance(node, list)
 
-    view_size = scene_dict['width'], scene_dict['height']
+    view_size = scene_dict['height'], scene_dict['width']
     camera_dict = scene_dict['Camera']
     objects_dict = scene_dict['Objects']
 
@@ -75,7 +75,7 @@ def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
 
 def check_scene_dict(scene_dict: dict) -> None:
     '''Check a scene dict for expected format (see top of file)'''
-    for argname in ('width', 'height'):
+    for argname in ('height', 'width'):
         check_type(argname, scene_dict.get(argname), int)
         assert scene_dict[argname] > 0, f'{argname} must be positive'
 

@@ -40,13 +40,13 @@ class Camera(NamedTuple):
         right = np.cross(forward, self.up)
         down = np.cross(right, forward)
         R = normalize(np.vstack([right, down, forward]))
-        w, h = view_size
+        h, w = view_size
         fy = fx / w * h
         x = np.linspace(-fx, fx, w)
-        y = np.linspace(-fy, fy, h)
-        x, y = np.meshgrid(x, y, indexing='ij')
+        y = np.linspace(fy, -fy, h)
+        x, y = np.meshgrid(x, y)
         x, y = x.flatten(), y.flatten()
-        rays = np.stack([x, y, np.ones(w * h)], axis=-1)
+        rays = np.stack((x, y, np.ones(w * h)), axis=-1)
         return normalize(rays) @ R
 
 
@@ -108,7 +108,7 @@ def render_scene(
     click: Tuple[int, int],
     light_dir: Array = LIGHT_DIR,
 ) -> Array:
-    w, h = view_size
+    h, w = view_size
     i, j = click
     ray_dir = scene.camera.rays(view_size)
 
@@ -119,17 +119,13 @@ def render_scene(
     surface_color = vmap(scene.color)(hit_pos)
     raw_normal = vmap(grad(sdf))(hit_pos)
 
-    light_dir = np.where(i == -1, light_dir, raw_normal[i * h - j])
+    light_dir = np.where(i == -1, light_dir, raw_normal[i * w + j])
     light_dir = normalize(light_dir)
     shadow = vmap(partial(cast_shadow, sdf, light_dir))(hit_pos)
-    color = vmap(partial(shade_f, light_dir=light_dir))(
+    image = vmap(partial(shade_f, light_dir=light_dir))(
         surface_color, raw_normal, ray_dir, shadow
     )
 
-    color = color ** (1.0 / 2.2)  # gamma correction
+    image = image ** (1.0 / 2.2)  # gamma correction
 
-    def to_rgb_image(img: Array) -> Array:
-        img = np.uint8(255.0 * img.clip(0.0, 1.0))
-        return img.reshape((w, h, 3)).transpose((1, 0, 2))
-
-    return to_rgb_image(color)
+    return image.reshape((h, w, 3))
