@@ -4,7 +4,7 @@ from jax.random import normal, split, PRNGKey
 
 # typing
 from jax import Array
-from typing import Tuple, Sequence
+from typing import Tuple, Sequence, NamedTuple, Callable
 from jax.random import PRNGKeyArray
 
 
@@ -19,21 +19,22 @@ def init_mlp_params(
     sizes: Sequence[int], key: PRNGKeyArray
 ) -> Sequence[Tuple[Array, Array]]:
     keys = split(key, len(sizes))
-    return [
-        init_layer_params(m, n, k) for m, n, k in zip(sizes[:-1], sizes[1:], keys)
-    ]
+    return [init_layer_params(m, n, k) for m, n, k in zip(sizes[:-1], sizes[1:], keys)]
 
 
-def forward_mlp(params: Sequence[Tuple[Array, Array]], x: Array) -> Array:
-    activations = x
-    for w, b in params[:-1]:
-        outputs = np.dot(w, activations) + b
-        activations = celu(outputs)
+class MLP(NamedTuple):
+    params: Sequence[Tuple[Array, Array]]
 
-    w, b = params[-1]
-    return np.dot(w, activations) + b
+    def __call__(self, x: Array) -> Array:
+        for w, b in self.params[:-1]:
+            x = celu(np.dot(w, x) + b)
+        w, b = self.params[-1]
+        return np.dot(w, x) + b
 
 
 if __name__ == '__main__':
     layer_sizes = [784, 512, 512, 10]
-    params = init_mlp_params(layer_sizes, PRNGKey(0))
+    params = init_mlp_params(layer_sizes, key=PRNGKey(0))
+    mlp = MLP(params)
+    x = np.ones(784)
+    print(mlp(x))

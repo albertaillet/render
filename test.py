@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 from jax import jit, grad, value_and_grad, vmap, numpy as np, random
 from jax.nn import sigmoid
-from utils.mlp import init_mlp_params, forward_mlp
+from utils.mlp import init_mlp_params, MLP
 from utils.linalg import normalize, norm, min, smoothmin, softmax
 from raymarch import (
     Planes,
@@ -39,20 +39,20 @@ scene = Scene(objects=(plane,), camera=camera)
 # %%
 @partial(jit, static_argnames=('view_size'))
 def render_mlp(
-    params: Tuple[Sequence[Tuple[Array, Array]], Sequence[Tuple[Array, Array]]],
+    mlps: Tuple[MLP, MLP],
     camera: Camera,
     view_size: Tuple[int, int],
     light_dir: Array = LIGHT_DIR,
 ) -> Array:
-    sdf_params, color_params = params
+    sdf_mlp, color_mlp = mlps
     w, h = view_size
     ray_dir = camera.rays(view_size)
 
     def sdf(p: Array) -> Array:
-        return forward_mlp(sdf_params, p)[0]
+        return sdf_mlp(p)[0]
 
     def colorf(p: Array) -> Array:
-        return forward_mlp(color_params, p)
+        return color_mlp(p)
 
     hit_pos = vmap(partial(raymarch, sdf, camera.position))(ray_dir)
     surface_color = vmap(colorf)(hit_pos)
@@ -76,49 +76,45 @@ def batch_generator(key: Array, batch_size: int, minval: float, maxval: float):
         yield random.uniform(subkey, (batch_size, 3), minval=minval, maxval=maxval)
 
 
-def sdf_loss_fn(
-    sdf_params: Sequence[Tuple[Array, Array]], scene: Scene, p: Array
-) -> Array:
-    mlp_dists = vmap(lambda p: np.exp(forward_mlp(sdf_params, p)))(p)
+def sdf_loss_fn(mlp: MLP, scene: Scene, p: Array) -> Array:
+    mlp_dists = vmap(lambda p: mlp(p))(p)
     scene_dists = vmap(lambda p: smoothmin(scene.sdf(p)))(p)
-    return np.sqrt(np.mean(np.square(mlp_dists - scene_dists)))
+    return np.mean(np.abs(mlp_dists - scene_dists))
 
 
-def color_loss_fn(
-    color_params: Sequence[Tuple[Array, Array]], scene: Scene, p: Array
-) -> Array:
-    mlp_colors = vmap(lambda p: sigmoid(forward_mlp(color_params, p)))(p)
+def color_loss_fn(mlp: MLP, scene: Scene, p: Array) -> Array:
+    mlp_colors = vmap(lambda p: sigmoid(mlp(p)))(p)
     scene_colors = vmap(scene.color)(p)
     return np.sqrt(np.mean(np.square(mlp_colors - scene_colors)))
 
 
 # %%
-sdf_params = init_mlp_params([3, 32, 32, 32, 1], key=random.PRNGKey(0))
+sdf_params = init_mlp_params([3, 32, 32, 32, 32, 32, 1], key=random.PRNGKey(0))
 color_params = init_mlp_params([3, 32, 32, 3], key=random.PRNGKey(1))
+sdf_mlp = MLP(sdf_params)
+color_mlp = MLP(color_params)
 
 # %%
-sdf_lr, color_lr = 1e-4, 1e-3
+sdf_lr, color_lr = 1e-3, 1e-3
 
-sdf_optimizer = adam(sdf_lr)
-sdf_opt_state = sdf_optimizer.init(sdf_params)
+sdf_opt = adam(sdf_lr)
+sdf_opt_state = sdf_opt.init(sdf_mlp)
 
-color_optimizer = adam(color_lr)
-color_opt_state = color_optimizer.init(color_params)
+color_opt = adam(color_lr)
+color_opt_state = color_opt.init(color_mlp)
 
-
-batch_size = 2 ** 10
+# %%
+batch_size = 2**10
 print(f'batch_size: {batch_size}')
 for i, batch in enumerate(batch_generator(random.PRNGKey(0), batch_size, -20.0, 20.0)):
-    sdf_loss, sdf_grads = value_and_grad(sdf_loss_fn)(sdf_params, scene, batch)
-    color_loss, color_grads = value_and_grad(color_loss_fn)(color_params, scene, batch)
 
-    sdf_updates, sdf_opt_state = sdf_optimizer.update(sdf_grads, sdf_opt_state)
-    sdf_params = apply_updates(sdf_params, sdf_updates)
+    sdf_loss, sdf_grads = value_and_grad(sdf_loss_fn)(sdf_mlp, scene, batch)
+    sdf_updates, sdf_opt_state = sdf_opt.update(sdf_grads, sdf_opt_state)
+    sdf_mlp = apply_updates(sdf_mlp, sdf_updates)
 
-    color_updates, color_opt_state = color_optimizer.update(
-        color_grads, color_opt_state
-    )
-    color_params = apply_updates(color_params, color_updates)
+    color_loss, color_grads = value_and_grad(color_loss_fn)(color_mlp, scene, batch)
+    color_updates, color_opt_state = color_opt.update(color_grads, color_opt_state)
+    color_mlp = apply_updates(color_mlp, color_updates)
 
     print(f'[{i}] sdf_loss: {sdf_loss:.2f}, color_loss: {color_loss:.2f}', end='\r')
     if i == 100:
@@ -126,13 +122,13 @@ for i, batch in enumerate(batch_generator(random.PRNGKey(0), batch_size, -20.0, 
 
 # %%
 # plot slice of the sdf
-def get_slice(minval: float, maxval: float, n: int, s: float=0.0):
+def get_slice(minval: float, maxval: float, n: int, s: float = 0.0):
     x = np.linspace(minval, maxval, n)
     y = np.linspace(minval, maxval, n)
     X, Y = np.meshgrid(x, y)
     Z = np.ones_like(X) * s
     p = np.stack([X, Y, Z], axis=-1).reshape((n * n, 3))
-    mlp_dists = vmap(lambda p: np.exp(forward_mlp(sdf_params, p)))(p)
+    mlp_dists = vmap(lambda p: sdf_mlp(p))(p)
     dists = vmap(lambda p: smoothmin(scene.sdf(p)))(p)
     return mlp_dists.reshape((n, n)), dists.reshape((n, n))
 
