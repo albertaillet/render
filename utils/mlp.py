@@ -1,5 +1,5 @@
 from jax import numpy as np
-from jax.nn import relu, tanh
+from jax.nn import celu
 from jax.random import normal, split, PRNGKey
 
 # typing
@@ -28,11 +28,10 @@ def forward_mlp(params: Sequence[Tuple[Array, Array]], x: Array) -> Array:
     activations = x
     for w, b in params[:-1]:
         outputs = np.dot(w, activations) + b
-        activations = relu(outputs)
+        activations = celu(outputs)
 
-    final_w, final_b = params[-1]
-    logits = np.dot(final_w, activations) + final_b
-    return tanh(logits)
+    w, b = params[-1]
+    return np.dot(w, activations) + b
 
 
 if __name__ == '__main__':
