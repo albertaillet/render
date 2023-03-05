@@ -20,6 +20,9 @@ class Spheres(NamedTuple):
     def sdf(self, p: Array) -> Array:
         return norm(p - self.position) - self.radius
 
+    def colorf(self, p: Array) -> Array:
+        return self.color
+
 
 class Planes(NamedTuple):
     position: Vec3s
@@ -28,6 +31,9 @@ class Planes(NamedTuple):
 
     def sdf(self, p: Array) -> Array:
         return np.sum((p - self.position) * self.normal, axis=1)
+
+    def colorf(self, p: Array) -> Array:
+        return self.color
 
 
 class Camera(NamedTuple):
@@ -52,14 +58,13 @@ class Camera(NamedTuple):
 
 class Scene(NamedTuple):
     objects: Tuple[NamedTuple, ...]
-    camera: Camera
 
     def sdf(self, p: Array) -> Array:
         return np.concatenate([o.sdf(p) for o in self.objects])
 
     def color(self, p: Array) -> Array:
         dists = self.sdf(p)
-        colors = np.concatenate([o.color for o in self.objects])
+        colors = np.concatenate([o.colorf(p) for o in self.objects])
         return softmax(-8.0 * dists) @ colors
 
 
@@ -104,18 +109,19 @@ LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 @partial(jit, static_argnames=('view_size'))
 def render_scene(
     scene: Scene,
+    camera: Camera,
     view_size: Tuple[int, int],
     click: Tuple[int, int],
     light_dir: Array = LIGHT_DIR,
 ) -> Array:
     h, w = view_size
     i, j = click
-    ray_dir = scene.camera.rays(view_size)
+    ray_dir = camera.rays(view_size)
 
     def sdf(p: Array) -> Array:
         return smoothmin(scene.sdf(p))
 
-    hit_pos = vmap(partial(raymarch, sdf, scene.camera.position))(ray_dir)
+    hit_pos = vmap(partial(raymarch, sdf, camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
     raw_normal = vmap(grad(sdf))(hit_pos)
 
