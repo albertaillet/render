@@ -1,7 +1,7 @@
 from jax import numpy as np
 from jax import lax, vmap, grad, jit
 from functools import partial
-from utils.linalg import norm, normalize, min, smoothmin, softmax
+from utils.linalg import norm, normalize, smoothmin, softmax
 
 # typing
 from typing import Callable, Tuple, NamedTuple
@@ -122,9 +122,7 @@ def render_scene(
     light_dir = np.where(i == -1, light_dir, raw_normal[i * w + j])
     light_dir = normalize(light_dir)
     shadow = vmap(partial(cast_shadow, sdf, light_dir))(hit_pos)
-    image = vmap(partial(shade_f, light_dir=light_dir))(
-        surface_color, raw_normal, ray_dir, shadow
-    )
+    image = vmap(partial(shade_f, light_dir=light_dir))(surface_color, raw_normal, ray_dir, shadow)
 
     image = image ** (1.0 / 2.2)  # gamma correction
 

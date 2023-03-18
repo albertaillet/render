@@ -1,2 +1,6 @@
 [tool.black]
 skip-string-normalization = true
+line-length = 100
+
+[tool.ruff]
+line-length = 100
