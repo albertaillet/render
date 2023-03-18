@@ -22,3 +22,7 @@ def smoothmin(x: Array, c: float = 8.0, **kwargs) -> Array:
 
 def softmax(x: Array, *args, **kwargs) -> Array:
     return nn.softmax(x, *args, **kwargs)
+
+
+def relu(x: Array, *args, **kwargs) -> Array:
+    return nn.relu(x, *args, **kwargs)

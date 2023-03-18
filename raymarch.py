@@ -1,7 +1,7 @@
 from jax import numpy as np
 from jax import lax, vmap, grad, jit
 from functools import partial
-from utils.linalg import norm, normalize, smoothmin, softmax
+from utils.linalg import norm, normalize, softmax, relu, min
 
 # typing
 from typing import Callable, Tuple, NamedTuple
@@ -9,25 +9,35 @@ from jaxtyping import Array, Float
 
 Vec3 = Float[Array, '3']
 Vec3s = Float[Array, 'n 3']
-Scalars = Float[Array, 'n']
+Scalar = Float[Array, '']
 
 
-class Spheres(NamedTuple):
-    position: Vec3s
-    radius: Scalars
-    color: Vec3s
+class Sphere(NamedTuple):
+    position: Vec3
+    radius: Scalar
+    color: Vec3
 
     def sdf(self, p: Array) -> Array:
         return norm(p - self.position) - self.radius
 
 
-class Planes(NamedTuple):
-    position: Vec3s
-    normal: Vec3s
-    color: Vec3s
+class Plane(NamedTuple):
+    position: Vec3
+    normal: Vec3
+    color: Vec3
 
     def sdf(self, p: Array) -> Array:
-        return np.sum((p - self.position) * self.normal, axis=1)
+        return np.sum((p - self.position) * self.normal)
+
+
+class Box(NamedTuple):
+    position: Vec3
+    size: Vec3
+    color: Vec3
+
+    def sdf(self, p: Array) -> Array:
+        q = np.abs(p - self.position) - self.size
+        return norm(relu(q)) + min(relu(q))
 
 
 class Camera(NamedTuple):
@@ -55,11 +65,14 @@ class Scene(NamedTuple):
     camera: Camera
 
     def sdf(self, p: Array) -> Array:
-        return np.concatenate([o.sdf(p) for o in self.objects])
+        d = np.inf
+        for o in self.objects:
+            d = np.minimum(d, o.sdf(p))
+        return d
 
     def color(self, p: Array) -> Array:
-        dists = self.sdf(p)
-        colors = np.concatenate([o.color for o in self.objects])
+        dists = np.array([o.sdf(p) for o in self.objects])
+        colors = np.array([o.color for o in self.objects])
         return softmax(-8.0 * dists) @ colors
 
 
@@ -112,8 +125,7 @@ def render_scene(
     i, j = click
     ray_dir = scene.camera.rays(view_size)
 
-    def sdf(p: Array) -> Array:
-        return smoothmin(scene.sdf(p))
+    sdf = scene.sdf
 
     hit_pos = vmap(partial(raymarch, sdf, scene.camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
