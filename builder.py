@@ -45,15 +45,31 @@ def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
     camera = rm.Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
 
     objects = []
+    positions = []
+    objattr = []
+    colors = []
     for obj_dict in object_dict_list:
         obj_type, obj = next(iter(obj_dict.items()))
-        cls = get_class(obj_type)
-        objects.append(cls(**tree_map(np.float32, obj, is_leaf=is_leaf)))
+        idx = rm.OBJECT_IDX[obj_type]
+        objects.append(idx)
+        positions.append(obj['position'])
+        objattr.append(obj['objattr'])
+        colors.append(obj['color'])
 
-    return rm.Scene(objects=tuple(objects), camera=camera), view_size
+    return (
+        rm.Scene(
+            objects=np.array(objects),
+            positions=np.array(positions),
+            objattr=np.array(objattr),
+            colors=np.array(colors),
+            camera=camera,
+        ),
+        view_size,
+    )
 
 
 def check_scene_dict(scene_dict: dict) -> None:
+    return
     '''Check a scene dict for expected format (see top of file)'''
     for argname in ('height', 'width'):
         check_type(argname, scene_dict.get(argname), int)

@@ -114,7 +114,7 @@ def setup(app) -> None:
             click = point['y'], point['x']
         except TypeError:
             click = (-1, -1)
-        im = render_scene(scene, view_size, click)
+        im = render_scene(scene, view_size, click)['image']
         return imshow(im, view_size)
 
     clientside_callback(

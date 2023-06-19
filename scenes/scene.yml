@@ -7,17 +7,17 @@ Camera:
 Objects:
     - Sphere:
         position: [0, 0, 0]
-        radius: 0.5
+        objattr: [0.5, 0.5, 0.5]
         color: [0, 0, 1]
     - Sphere:
         position: [0, 1, 0]
-        radius: 0.5
+        objattr: [0.5, 0.5, 0.5]
         color: [0, 1, 0]
     - Sphere:
         position: [0, 2, 0]
-        radius: 0.5
+        objattr: [0.5, 0.5, 0.5]
         color: [1, 0, 0]
     - Plane:
         position: [0, 0, 0]
-        normal: [0, 1, 0]
+        objattr: [0, 1, 0]
         color: [1, 1, 1]

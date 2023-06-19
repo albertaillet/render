@@ -1,43 +1,38 @@
 from jax import numpy as np
 from jax import lax, vmap, grad, jit
 from functools import partial
-from utils.linalg import norm, normalize, softmax, relu, min
+from utils.linalg import norm, normalize, softmax, relu, min, smoothmin
 
 # typing
-from typing import Callable, Tuple, NamedTuple
-from jaxtyping import Array, Float
+from typing import Callable, Tuple, Dict, NamedTuple
+from jaxtyping import Array, Float, Int8
 
 Vec3 = Float[Array, '3']
 Vec3s = Float[Array, 'n 3']
 Scalar = Float[Array, '']
 
 
-class Sphere(NamedTuple):
-    position: Vec3
-    radius: Scalar
-    color: Vec3
-
-    def sdf(self, p: Array) -> Array:
-        return norm(p - self.position) - self.radius
+def sdf_sphere(position: Vec3, radius: Vec3, p: Vec3) -> Scalar:
+    r, *_ = radius
+    return norm(p - position) - r
 
 
-class Plane(NamedTuple):
-    position: Vec3
-    normal: Vec3
-    color: Vec3
-
-    def sdf(self, p: Array) -> Array:
-        return np.sum((p - self.position) * self.normal)
+def sdf_plane(position: Vec3, normal: Vec3, p: Vec3) -> Scalar:
+    n = normalize(normal)
+    return np.sum((p - position) * n)
 
 
-class Box(NamedTuple):
-    position: Vec3
-    size: Vec3
-    color: Vec3
+def sdf_box(position: Vec3, size: Vec3, p: Vec3) -> Scalar:
+    q = np.abs(p - position) - size
+    return norm(relu(q)) + min(relu(q))
 
-    def sdf(self, p: Array) -> Array:
-        q = np.abs(p - self.position) - self.size
-        return norm(relu(q)) + min(relu(q))
+
+OBJECT_IDX = {
+    'Box': 0,
+    'Sphere': 1,
+    'Plane': 2,
+}
+BRANCHES = [sdf_box, sdf_sphere, sdf_plane]
 
 
 class Camera(NamedTuple):
@@ -45,7 +40,7 @@ class Camera(NamedTuple):
     position: Vec3
     target: Vec3
 
-    def rays(self, view_size: Tuple[int, int], fx: float = 0.6) -> Array:
+    def rays(self, view_size: Tuple[int, int], fx: float = 0.6) -> Vec3s:
         forward = self.target - self.position
         right = np.cross(forward, self.up)
         down = np.cross(right, forward)
@@ -61,19 +56,22 @@ class Camera(NamedTuple):
 
 
 class Scene(NamedTuple):
-    objects: Tuple[NamedTuple, ...]
+    objects: Int8
+    positions: Vec3s
+    objattr: Vec3
+    colors: Vec3s
     camera: Camera
 
     def sdf(self, p: Array) -> Array:
-        d = np.inf
-        for o in self.objects:
-            d = np.minimum(d, o.sdf(p))
-        return d
+        def switch(obj_idx, pos, attr):
+            return lax.switch(obj_idx, BRANCHES, pos, attr, p)
+
+        return vmap(switch)(self.objects, self.positions, self.objattr)
 
     def color(self, p: Array) -> Array:
-        dists = np.array([o.sdf(p) for o in self.objects])
-        colors = np.array([o.color for o in self.objects])
-        return softmax(-8.0 * dists) @ colors
+        dists = self.sdf(p)
+        color = softmax(-8.0 * dists) @ self.colors
+        return color
 
 
 def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
@@ -120,12 +118,13 @@ def render_scene(
     view_size: Tuple[int, int],
     click: Tuple[int, int],
     light_dir: Array = LIGHT_DIR,
-) -> Array:
+) -> Dict[str, Array]:
     h, w = view_size
     i, j = click
     ray_dir = scene.camera.rays(view_size)
 
-    sdf = scene.sdf
+    def sdf(p: Array) -> Array:
+        return smoothmin(scene.sdf(p), axis=0)
 
     hit_pos = vmap(partial(raymarch, sdf, scene.camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
@@ -138,4 +137,31 @@ def render_scene(
 
     image = image ** (1.0 / 2.2)  # gamma correction
 
-    return image.reshape((h, w, 3))
+    distances = norm(hit_pos - scene.camera.position, axis=1)
+
+    return {
+        'image': image.reshape((h, w, 3)),
+        'raw_normal': raw_normal.reshape((h, w, 3)),
+        'distance': distances.reshape((h, w)),
+    }
+
+
+if __name__ == '__main__':
+    from builder import build_scene
+    from yaml import SafeLoader, load
+
+    scene_dict = load(open('scenes/scene.yml', 'r'), SafeLoader)
+
+    scene, view_size = build_scene(scene_dict)
+
+    out = render_scene(scene, view_size, (-1, -1))
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(1, 3)
+    ax[0].imshow(out['image'].clip(0.0, 1.0))
+    ax[1].imshow(out['raw_normal'].clip(0.0, 1.0))
+    ax[2].imshow(out['distance'])
+    for a in ax:
+        a.axis('off')
+    plt.show()
