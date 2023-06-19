@@ -9,8 +9,8 @@ Expected scene dict format:
         'up': [0, 1, 0]
     }
     'Objects': [
-        {'Sphere': {'position': [0, 0, 0], 'radius': 0.5, 'color': [0, 0, 1]}},
-        {'Plane': {'position': [0, 0, 0], 'normal': [0, 1, 0], 'color': [1, 1, 1]}},
+        {'Sphere': {'position': [0, 0, 0], 'objattr': [0.5, 0, 0], 'color': [0, 0, 1]}},
+        {'Plane': {'position': [0, 0, 0], 'objattr': [0, 1, 0], 'color': [1, 1, 1]}},
     ]
 }
 '''
@@ -19,24 +19,15 @@ from jax import tree_map, numpy as np
 
 # typing
 from typeguard import check_type
-from typing import Tuple, Any, get_type_hints
-
-CAST_TYPES = {
-    rm.Vec3: Tuple[float, float, float],
-    rm.Scalar: float,
-}
+from typing import Tuple, Any, Set
 
 
-def get_class(obj_type: str) -> Any:
-    '''Get the class for an object type'''
-    return getattr(rm, obj_type)
+def is_leaf(node: Any) -> bool:
+    return isinstance(node, list)
 
 
 def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
     '''Create a scene from a dict of expected format (see top of file)'''
-
-    def is_leaf(node: Any) -> bool:
-        return isinstance(node, list)
 
     view_size = scene_dict['height'], scene_dict['width']
     camera_dict = scene_dict['Camera']
@@ -69,33 +60,29 @@ def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
 
 
 def check_scene_dict(scene_dict: dict) -> None:
-    return
     '''Check a scene dict for expected format (see top of file)'''
     for argname in ('height', 'width'):
         check_type(argname, scene_dict.get(argname), int)
         assert scene_dict[argname] > 0, f'{argname} must be positive'
 
-    check_dict_fields(scene_dict.get('Camera'), rm.Camera)
+    check_fields(scene_dict.get('Camera'), {'position', 'target', 'up'})
 
     for outer_obj_dict in scene_dict.get('Objects'):
         for obj_type, obj in outer_obj_dict.items():
-            check_dict_fields(obj, get_class(obj_type))
+            assert obj_type in rm.OBJECT_IDX, f'Unknown object type {obj_type}'
+            check_fields(obj, {'position', 'objattr', 'color'})
 
 
-def check_dict_fields(obj: dict, cls: type) -> None:
-    type_hints = get_type_hints(cls)
-
+def check_fields(obj: dict, required: Set[str]) -> None:
     check_type('obj', obj, dict)
 
     provided = set(obj.keys())
-    required = set(type_hints.keys())
     if provided != required:
         raise ValueError(f'{obj} has {provided} fields and should have {required}')
 
     for field in obj:
         # cast lists to tuples to be able to check length
-        value = tuple(obj[field]) if isinstance(obj[field], list) else obj[field]
-        check_type(field, value, CAST_TYPES[type_hints[field]])
+        check_type(field, tuple(obj[field]), Tuple[float, float, float])
 
 
 if __name__ == '__main__':
