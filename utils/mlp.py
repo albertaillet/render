@@ -1,5 +1,5 @@
 from jax import numpy as np
-from jax.nn import celu
+from jax.nn import sigmoid
 from jax.random import normal, split, PRNGKey
 
 # typing
@@ -8,11 +8,8 @@ from typing import Tuple, Sequence, NamedTuple, Callable
 from jax.random import PRNGKeyArray
 
 
-def init_layer_params(
-    m: int, n: int, key: PRNGKeyArray, scale: float = 1e-2
-) -> Tuple[Array, Array]:
-    w_key, b_key = split(key)
-    return scale * normal(w_key, (n, m)), scale * normal(b_key, (n,))
+def init_layer_params(m: int, n: int, key: PRNGKeyArray) -> Tuple[Array, Array]:
+    return normal(key, (n, m)) / np.sqrt(m), np.zeros(n)
 
 
 def init_mlp_params(
@@ -27,9 +24,9 @@ class MLP(NamedTuple):
 
     def __call__(self, x: Array) -> Array:
         for w, b in self.params[:-1]:
-            x = celu(np.dot(w, x) + b)
+            x = sigmoid(np.dot(w, x) + b)
         w, b = self.params[-1]
-        return np.dot(w, x) + b
+        return sigmoid(np.dot(w, x) + b)
 
 
 if __name__ == '__main__':

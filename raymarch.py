@@ -56,18 +56,6 @@ class Camera(NamedTuple):
         return normalize(rays) @ R
 
 
-class Scene(NamedTuple):
-    objects: Tuple[NamedTuple, ...]
-
-    def sdf(self, p: Array) -> Array:
-        return np.concatenate([o.sdf(p) for o in self.objects])
-
-    def color(self, p: Array) -> Array:
-        dists = self.sdf(p)
-        colors = np.concatenate([o.colorf(p) for o in self.objects])
-        return softmax(-8.0 * dists) @ colors
-
-
 def raymarch(sdf: Callable, p0: Array, dir: Array, n_steps: int = 50) -> Array:
     def march_step(_, p):
         return p + sdf(p) * dir
@@ -108,7 +96,7 @@ LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 
 @partial(jit, static_argnames=('view_size'))
 def render_scene(
-    scene: Scene,
+    scene,
     camera: Camera,
     view_size: Tuple[int, int],
     click: Tuple[int, int],
@@ -118,8 +106,7 @@ def render_scene(
     i, j = click
     ray_dir = camera.rays(view_size)
 
-    def sdf(p: Array) -> Array:
-        return smoothmin(scene.sdf(p))
+    sdf = scene.sdf
 
     hit_pos = vmap(partial(raymarch, sdf, camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
@@ -134,4 +121,6 @@ def render_scene(
 
     image = image ** (1.0 / 2.2)  # gamma correction
 
-    return image.reshape((h, w, 3))
+    depth = norm(hit_pos - camera.position)
+
+    return image.reshape((h, w, 3)), depth.reshape((h, w))
