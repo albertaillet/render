@@ -1,23 +1,39 @@
 width: 200
 height: 200
+smoothing: 0.125
 Camera:
-    position: [3, 5, 3]
-    target: [0, 0, 0]
+    position: [1, 1, 0]
+    target: [0, 0.5, 0]
     up: [0, 1, 0]
+    f: 0.6
 Objects:
     - Sphere:
-        position: [0, 0, 0]
-        radius: 0.5
+        position: [0, 0.5, 0]
+        attribute: [0.1, 0.1, 0.1]
+        rotation: [0, 0, 0]
         color: [0, 0, 1]
-    - Sphere:
-        position: [0, 1, 0]
-        radius: 0.5
+        rounding: 0.0
+    - Box:
+        position: [0, 0.5, -0.5]
+        attribute: [0.1, 0.1, 0.1]
+        rotation: [0, 0, 0]
         color: [0, 1, 0]
+        rounding: 0.0
     - Sphere:
-        position: [0, 2, 0]
-        radius: 0.5
+        position: [0, 0.5, 0.5]
+        attribute: [0.1, 0.1, 0.1]
+        rotation: [0, 0, 0]
         color: [1, 0, 0]
+        rounding: 0.0
     - Plane:
         position: [0, 0, 0]
-        normal: [0, 1, 0]
+        attribute: [0, 1, 0]
+        rotation: [0, 0, 0]
         color: [1, 1, 1]
+        rounding: 0.0
+    - Plane:
+        position: [-2, 0, 0]
+        attribute: [1, 0, 0]
+        rotation: [0, 0, 0]
+        color: [1, 1, 1]
+        rounding: 0.0

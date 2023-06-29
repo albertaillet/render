@@ -1,6 +1,6 @@
-import numpy as np
 from PIL import Image
 from io import BytesIO
+from numpy import uint8
 from base64 import b64encode
 from plotly import graph_objects as go
 
@@ -10,9 +10,7 @@ from numpy.typing import ArrayLike
 from typing import Optional, Tuple
 
 
-def imshow(
-    im: Optional[ArrayLike] = None, view_size: Tuple[int, int] = (0, 0)
-) -> go.Figure:
+def imshow(im: Optional[ArrayLike] = None, view_size: Tuple[int, int] = (0, 0)) -> go.Figure:
     h, w = view_size
 
     return go.Figure(
@@ -32,7 +30,7 @@ def imshow(
 
 
 def to_rgb(im: ArrayLike) -> ArrayLike:
-    return np.uint8(255.0 * im.clip(0.0, 1.0))
+    return uint8(255.0 * im.clip(0.0, 1.0))
 
 
 def to_base_64(im: ArrayLike) -> str:
