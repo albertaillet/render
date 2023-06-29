@@ -68,18 +68,19 @@ def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
 
     camera = rm.Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
 
+    objects = []
     object_args = {arg + 's': [] for arg in OBJECT_FIELDS}
-    object_args['objects'] = []
     for obj_dict in object_dict_list:
         obj_type, obj = next(iter(obj_dict.items()))
         idx = rm.OBJECT_IDX[obj_type]
-        object_args['objects'].append(idx)
+        objects.append(idx)
         for arg in OBJECT_FIELDS:
             object_args[arg + 's'].append(obj[arg])
 
     return (
         rm.Scene(
-            **tree_map(np.array, object_args, is_leaf=is_leaf),
+            objects=np.uint8(objects),
+            **tree_map(np.float32, object_args, is_leaf=is_leaf),
             camera=camera,
             smoothing=smoothing,
         ),

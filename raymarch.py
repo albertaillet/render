@@ -5,12 +5,13 @@ from utils.linalg import norm, normalize, softmax, relu, smoothmin, Rxyz
 
 # typing
 from typing import Callable, Tuple, Dict, NamedTuple
-from jaxtyping import Array, Float, Int
+from jaxtyping import Array, Float32, UInt8
 
-Vec3 = Float[Array, '3']
-Vec3s = Float[Array, 'n 3']
-Scalar = Float[Array, '']
-Scalars = Float[Array, 'n']
+Vec3 = Float32[Array, '3']
+Vec3s = Float32[Array, 'n 3']
+Scalar = Float32[Array, '']
+Scalars = Float32[Array, 'n']
+UInts = UInt8[Array, 'n']
 
 
 def sdf_sphere(position: Vec3, radius: Vec3, p: Vec3) -> Scalar:
@@ -40,7 +41,7 @@ class Camera(NamedTuple):
     up: Vec3
     position: Vec3
     target: Vec3
-    f: float = 0.6
+    f: Scalar
 
     def __call__(self, view_size: Tuple[int, int]) -> Vec3s:
         forward = self.target - self.position
@@ -58,17 +59,17 @@ class Camera(NamedTuple):
 
 
 class Scene(NamedTuple):
-    objects: Scalars
+    objects: UInts
     positions: Vec3s
     attributes: Vec3s
     rotations: Vec3s
     colors: Vec3s
     roundings: Scalars
-    smoothing: float
+    smoothing: Scalar
     camera: Camera
 
     def sdfs(self, p: Vec3) -> Scalars:
-        def switch(p: Vec3, obj_idx: Int, pos: Vec3, attr: Vec3, rot: Vec3):
+        def switch(p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3):
             p_rot = (p - pos) @ Rxyz(rot) + pos
             return lax.switch(obj_idx, BRANCHES, pos, attr, p_rot)
 
