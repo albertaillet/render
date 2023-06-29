@@ -10,6 +10,7 @@ from typing import Tuple
 
 GRAPH_ID = 'graph'
 GRAPH_DOWNLOAD_BUTTON_ID = 'graph-download-button'
+VIEW_CHOICE_ID = 'view-choice'
 STORE_ID = 'store'
 EDIT_ACCESS_BUTTON_ID = 'edit-access-button'
 EDIT_OFFCANVAS_ID = 'edit-offcanvas'
@@ -37,6 +38,16 @@ def setup(app) -> None:
                         id=GRAPH_DOWNLOAD_BUTTON_ID,
                         style={'margin': '10px 5px 10px 5px'},
                     ),
+                    dcc.RadioItems(
+                        options={
+                            name: name.capitalize()
+                            for name in ['image', 'normal', 'coordinate', 'distance']
+                        },
+                        value='image',
+                        inline=True,
+                        id=VIEW_CHOICE_ID,
+                        persistence=True,
+                    ),
                 ]
             ),
             html.Center(
@@ -54,7 +65,6 @@ def setup(app) -> None:
             dbc.Offcanvas(
                 [
                     dbc.Textarea(
-                        value=open('scenes/scene.yml', 'r').read(),
                         placeholder='Scene data',
                         id=EDIT_CODE_ID,
                         size='sm',
@@ -65,6 +75,7 @@ def setup(app) -> None:
                             'backgroundColor': '#343a40',
                             'color': '#fff',
                         },
+                        persisted_props=['value'],
                     ),
                     dbc.Popover(
                         [
@@ -81,7 +92,7 @@ def setup(app) -> None:
             ),
             dcc.Store(
                 id=STORE_ID,
-                data=yaml.load(open('scenes/scene.yml', 'r'), yaml.SafeLoader),
+                storage_type='session',
             ),
         ]
     )
@@ -94,27 +105,44 @@ def setup(app) -> None:
         Output(EDIT_POPOVERBODY_ID, 'children'),
         Input(EDIT_CODE_ID, 'value'),
     )
-    def save_code_to_store(scene_yml_str: str) -> Tuple[dict, bool, bool, str, str]:
+    def save_code_to_store(scene_str: str) -> Tuple[dict, bool, bool, str, str]:
         try:
-            scene_dict = yaml.load(scene_yml_str, Loader=yaml.SafeLoader)
+            scene_dict = yaml.load(scene_str, Loader=yaml.SafeLoader)
             check_scene_dict(scene_dict)
-            return scene_dict, False, False, no_update, no_update
+            store = {
+                'scene_dict': scene_dict,
+                'scene_str': scene_str,
+            }
+            return store, False, False, no_update, no_update
         except Exception as e:
             return no_update, True, True, type(e).__name__, str(e)
 
     @app.callback(
+        Output(EDIT_CODE_ID, 'value'),
+        Input(EDIT_OFFCANVAS_ID, 'is_open'),
+        State(STORE_ID, 'data'),
+    )
+    def load_scene_str_from_store(is_open: bool, store: dict) -> str:
+        if not is_open:
+            return no_update
+        if store is not None:
+            return store['scene_str']
+        return open('scenes/scene.yml', 'r').read()
+
+    @app.callback(
         Output(GRAPH_ID, 'figure'),
         Input(GRAPH_ID, 'clickData'),
+        Input(VIEW_CHOICE_ID, 'value'),
         Input(STORE_ID, 'data'),
     )
-    def render(click_data: dict, scene_dict: dict) -> dict:
-        scene, view_size = build_scene(scene_dict)
+    def render(click_data: dict, view: str, store: dict) -> dict:
+        scene, view_size = build_scene(store['scene_dict'])
         try:
             point = click_data['points'][0]
             click = point['y'], point['x']
         except TypeError:
             click = (-1, -1)
-        im = render_scene(scene, view_size, click)['image']
+        im = render_scene(scene, view_size, click)[view]
         return imshow(im, view_size)
 
     clientside_callback(

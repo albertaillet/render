@@ -12,12 +12,8 @@ def normalize(x: Array, axis: int = -1, eps: float = 1e-20) -> Array:
     return x / norm(x, axis=axis, keepdims=True, eps=eps)
 
 
-def min(x: Array, axis: int = -1, keepdims: bool = False) -> Array:
-    return np.min(x, axis=axis, keepdims=keepdims)
-
-
-def smoothmin(x: Array, c: float = 8.0, **kwargs) -> Array:
-    return -nn.logsumexp(-c * x, **kwargs) / c
+def smoothmin(x: Array, c: float = 0.125, **kwargs) -> Array:
+    return -c * nn.logsumexp(-x / c, **kwargs)
 
 
 def softmax(x: Array, *args, **kwargs) -> Array:
@@ -26,3 +22,23 @@ def softmax(x: Array, *args, **kwargs) -> Array:
 
 def relu(x: Array, *args, **kwargs) -> Array:
     return nn.relu(x, *args, **kwargs)
+
+
+def Rx(theta: float) -> Array:
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+
+def Ry(theta: float) -> Array:
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+
+
+def Rz(theta: float) -> Array:
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+
+def Rxyz(rotation_angles: Array) -> Array:
+    theta, phi, psi = rotation_angles
+    return Rz(psi) @ Ry(phi) @ Rx(theta)
