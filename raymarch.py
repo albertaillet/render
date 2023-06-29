@@ -14,27 +14,31 @@ Scalars = Float32[Array, 'n']
 UInts = UInt8[Array, 'n']
 
 
-def sdf_sphere(position: Vec3, radius: Vec3, p: Vec3) -> Scalar:
-    r, *_ = radius
-    return norm(p - position) - r
+def sdf_sphere(p: Vec3, r: Vec3) -> Scalar:
+    return norm(p) - r[0]
 
 
-def sdf_plane(position: Vec3, normal: Vec3, p: Vec3) -> Scalar:
-    n = normalize(normal)
-    return np.sum((p - position) * n)
+def sdf_plane(p: Vec3, n: Vec3) -> Scalar:
+    return np.sum(p * normalize(n))
 
 
-def sdf_box(position: Vec3, size: Vec3, p: Vec3) -> Scalar:
-    q = np.abs(p - position) - size
+def sdf_box(p: Vec3, b: Vec3) -> Scalar:
+    q = np.abs(p) - b
     return norm(relu(q)) + np.minimum(np.max(q), 0)
+
+
+def sdf_torus(p: Vec3, t: Vec3) -> Scalar:
+    q = np.array([norm(p[:2]) - t[0], p[2]])
+    return norm(q) - t[1]
 
 
 OBJECT_IDX = {
     'Box': 0,
     'Sphere': 1,
     'Plane': 2,
+    'Torus': 3,
 }
-BRANCHES = [sdf_box, sdf_sphere, sdf_plane]
+BRANCHES = [sdf_box, sdf_sphere, sdf_plane, sdf_torus]
 
 
 class Camera(NamedTuple):
@@ -70,8 +74,7 @@ class Scene(NamedTuple):
 
     def sdfs(self, p: Vec3) -> Scalars:
         def switch(p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3):
-            p_rot = (p - pos) @ Rxyz(rot) + pos
-            return lax.switch(obj_idx, BRANCHES, pos, attr, p_rot)
+            return lax.switch(obj_idx, BRANCHES, (p - pos) @ Rxyz(rot), attr)
 
         dists = vmap(partial(switch, p))(
             self.objects,
