@@ -106,13 +106,12 @@ def setup(app) -> None:
         Input(EDIT_CODE_ID, 'value'),
     )
     def save_code_to_store(scene_str: str) -> Tuple[dict, bool, bool, str, str]:
+        '''Saves the editable scene config to the store if it is valid.
+        Otherwise, shows an error popover.'''
         try:
             scene_dict = yaml.load(scene_str, Loader=yaml.SafeLoader)
             check_scene_dict(scene_dict)
-            store = {
-                'scene_dict': scene_dict,
-                'scene_str': scene_str,
-            }
+            store = {'scene_dict': scene_dict, 'scene_str': scene_str}
             return store, False, False, no_update, no_update
         except Exception as e:
             return no_update, True, True, type(e).__name__, str(e)
@@ -123,7 +122,9 @@ def setup(app) -> None:
         State(STORE_ID, 'data'),
     )
     def load_scene_str_from_store(is_open: bool, store: dict) -> str:
-        if not is_open:
+        '''Resets the editable scene config to the valid one in the store
+        when the offcanvas is closed.'''
+        if is_open:
             return no_update
         if store is not None:
             return store['scene_str']
@@ -134,8 +135,10 @@ def setup(app) -> None:
         Input(GRAPH_ID, 'clickData'),
         Input(VIEW_CHOICE_ID, 'value'),
         Input(STORE_ID, 'data'),
+        prevent_initial_call=True,
     )
     def render(click_data: dict, view: str, store: dict) -> dict:
+        '''Renders the scene with the given click, view choice and scene data.'''
         scene, view_size = build_scene(store['scene_dict'])
         try:
             point = click_data['points'][0]
