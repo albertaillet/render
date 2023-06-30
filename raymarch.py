@@ -45,7 +45,7 @@ class Camera(NamedTuple):
     up: Vec3
     position: Vec3
     target: Vec3
-    f: Scalar
+    fov: Scalar
 
     def __call__(self, view_size: Tuple[int, int]) -> Vec3s:
         forward = self.target - self.position
@@ -53,7 +53,7 @@ class Camera(NamedTuple):
         down = np.cross(right, forward)
         R = normalize(np.vstack([right, down, forward]))
         h, w = view_size
-        fx, fy = self.f, self.f * h / w
+        fx, fy = self.fov, self.fov * h / w
         x = np.linspace(-fx, fx, w)
         y = np.linspace(fy, -fy, h)
         x, y = np.meshgrid(x, y)

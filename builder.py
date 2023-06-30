@@ -43,7 +43,7 @@ CAMERA_FIELDS = {
     'position': Tuple[float, float, float],
     'target': Tuple[float, float, float],
     'up': Tuple[float, float, float],
-    'f': float,
+    'fov': float,
 }
 OBJECT_FIELDS = {
     'position': Tuple[float, float, float],

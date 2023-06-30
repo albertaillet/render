@@ -5,7 +5,7 @@ Camera:
     position: [3, 5, 3]
     target: [0, 0, 0]
     up: [0, 1, 0]
-    f: 0.6
+    fov: 0.6
 Objects:
     - Sphere:
         position: [0, 0, 0]
