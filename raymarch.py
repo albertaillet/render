@@ -70,7 +70,6 @@ class Scene(NamedTuple):
     colors: Vec3s
     roundings: Scalars
     smoothing: Scalar
-    camera: Camera
 
     def sdfs(self, p: Vec3) -> Scalars:
         def switch(p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3):
@@ -132,15 +131,16 @@ LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
 @partial(jit, static_argnames=('view_size'))
 def render_scene(
     scene: Scene,
+    camera: Camera,
     view_size: Tuple[int, int],
     click: Tuple[int, int],
     light_dir: Vec3 = LIGHT_DIR,
 ) -> Dict[str, Array]:
     h, w = view_size
     i, j = click
-    ray_dir = scene.camera(view_size)
+    ray_dir = camera(view_size)
 
-    hit_pos = vmap(partial(raymarch, scene.sdf, scene.camera.position))(ray_dir)
+    hit_pos = vmap(partial(raymarch, scene.sdf, camera.position))(ray_dir)
     surface_color = vmap(scene.color)(hit_pos)
     raw_normal = vmap(grad(scene.sdf))(hit_pos)
 
@@ -151,7 +151,7 @@ def render_scene(
 
     image = image ** (1.0 / 2.2)  # gamma correction
 
-    distances = norm(hit_pos - scene.camera.position, axis=1)
+    distances = norm(hit_pos - camera.position, axis=1)
 
     return {
         'image': image.reshape((h, w, 3)),
@@ -162,21 +162,17 @@ def render_scene(
 
 
 if __name__ == '__main__':
-    from builder import build_scene
-    from yaml import SafeLoader, load
-
-    scene_dict = load(open('scenes/scene.yml', 'r'), SafeLoader)
-
-    scene, view_size = build_scene(scene_dict)
-
-    out = render_scene(scene, view_size, (-1, -1))
-
     import matplotlib.pyplot as plt
+    from builder import build_scene
+    from utils.plot import load_yaml, to_rgb
 
-    fig, ax = plt.subplots(1, 3)
-    ax[0].imshow(out['image'].clip(0.0, 1.0))
-    ax[1].imshow(out['raw_normal'].clip(0.0, 1.0))
-    ax[2].imshow(out['distance'])
-    for a in ax:
-        a.axis('off')
+    scene_dict = load_yaml('scenes/scene.yml')
+
+    out = render_scene(**build_scene(scene_dict), click=(-1, -1))
+
+    fig, axs = plt.subplots(1, len(out))
+    for ax, (name, im) in zip(axs, out.items()):
+        ax.imshow(to_rgb(im))
+        ax.set_title(name)
+        ax.axis('off')
     plt.show()

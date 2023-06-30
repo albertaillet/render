@@ -37,7 +37,7 @@ from jax import tree_map, numpy as np
 
 # typing
 from typeguard import check_type
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, Union
 
 CAMERA_FIELDS = {
     'position': Tuple[float, float, float],
@@ -58,7 +58,7 @@ def is_leaf(node: Any) -> bool:
     return isinstance(node, list)
 
 
-def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
+def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[int, int]]]:
     '''Create a scene from a dict of expected format (see top of file)'''
 
     view_size = scene_dict['height'], scene_dict['width']
@@ -77,15 +77,15 @@ def build_scene(scene_dict: dict) -> Tuple[rm.Scene, Tuple[int, int]]:
         for arg in OBJECT_FIELDS:
             object_args[arg + 's'].append(obj[arg])
 
-    return (
-        rm.Scene(
+    return {
+        'scene': rm.Scene(
             objects=np.uint8(objects),
             **tree_map(np.float32, object_args, is_leaf=is_leaf),
-            camera=camera,
-            smoothing=smoothing,
+            smoothing=np.float32(smoothing),
         ),
-        view_size,
-    )
+        'camera': camera,
+        'view_size': view_size,
+    }
 
 
 def check_scene_dict(scene_dict: dict) -> None:
@@ -120,19 +120,14 @@ def check_fields(obj: dict, fields: Dict[str, type]) -> None:
 
 
 if __name__ == '__main__':
+    from pathlib import Path
     from utils.plot import load_yaml
 
-    scene_dict = load_yaml('scenes/sphere.yaml')
-
-    pos = np.zeros((3))
-    check_type('pos', pos, rm.Vec3)
-    radius = np.array(0.5)
-    check_type('radius', radius, rm.Scalar)
-    color = np.zeros((3))
-    check_type('color', color, rm.Vec3)
-    obj = rm.Sphere(position=pos, radius=radius, color=color)
-    check_type('obj', obj, rm.Sphere)
-
-    check_scene_dict(scene_dict)
-    scene, view_size = build_scene(scene_dict)
-    check_type('scene', scene, rm.Scene)
+    for path in Path('scenes').glob('*.yml'):
+        print(f'Checking {path}')
+        scene_dict = load_yaml(path)
+        check_scene_dict(scene_dict)
+        out = build_scene(scene_dict)
+        check_type('scene', out['scene'], rm.Scene)
+        check_type('camera', out['camera'], rm.Camera)
+        check_type('view_size', out['view_size'], Tuple[int, int])

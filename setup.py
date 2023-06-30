@@ -139,14 +139,14 @@ def setup(app) -> None:
     )
     def render(click_data: dict, view: str, store: dict) -> dict:
         '''Renders the scene with the given click, view choice and scene data.'''
-        scene, view_size = build_scene(store['scene_dict'])
         try:
             point = click_data['points'][0]
             click = point['y'], point['x']
         except TypeError:
             click = (-1, -1)
-        im = render_scene(scene, view_size, click)[view]
-        return imshow(im, view_size)
+        args = build_scene(store['scene_dict'])
+        im = render_scene(**args, click=click)[view]
+        return imshow(im, args['view_size'])
 
     clientside_callback(
         '(n_clicks, is_open) => (n_clicks > 0) ? !is_open : is_open',
