@@ -1,36 +1,5 @@
 '''Build Scene for raymarching from a dict
-Expected scene dict format:
-{
-    'width': 800
-    'height': 600
-    'smoothing': 0.125
-    'Camera': {
-        'position': [0, 0, 5]
-        'target': [0, 0, 0]
-        'up': [0, 1, 0]
-        'f': 0.6
-    }
-    'Objects': [
-        {
-            'Sphere': {
-                'position': [0, 0, 0],
-                'attribute': [0.5, 0, 0],
-                'color': [0, 0, 1],
-                'rotation': [0, 0, 0],
-                'rounding': 0.0
-            }
-        },
-        {
-            'Plane': {
-                'position': [0, 0, 0],
-                'attribute': [0, 1, 0],
-                'color': [1, 1, 1]
-                'rotation': [0, 0, 0],
-                'rounding': 0.0
-            }
-        },
-    ]
-}
+For expected format of dict, see scenes/*.yml
 '''
 import raymarch as rm
 from jax import tree_map, numpy as np
