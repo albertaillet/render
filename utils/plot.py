@@ -2,6 +2,7 @@ from PIL import Image
 from io import BytesIO
 from numpy import uint8
 from base64 import b64encode
+from yaml import SafeLoader, load
 from plotly import graph_objects as go
 
 
@@ -15,7 +16,7 @@ def imshow(im: Optional[ArrayLike] = None, view_size: Tuple[int, int] = (0, 0)) 
 
     return go.Figure(
         data=go.Image(
-            source=im if im is None else to_base_64(to_rgb(im)),
+            source=im if im is None else to_base_64(to_pil(to_rgb(im))),
             hoverinfo='none',
         ),
         layout=go.Layout(
@@ -33,7 +34,15 @@ def to_rgb(im: ArrayLike) -> ArrayLike:
     return uint8(255.0 * im.clip(0.0, 1.0))
 
 
-def to_base_64(im: ArrayLike) -> str:
+def to_pil(im: ArrayLike) -> Image:
+    return Image.fromarray(im)
+
+
+def to_base_64(im: Image) -> str:
     with BytesIO() as buffer:
-        Image.fromarray(im).save(buffer, format='png')
+        im.save(buffer, format='png')
         return 'data:image/png;base64,' + b64encode(buffer.getvalue()).decode()
+
+
+def load_yaml(path: str) -> dict:
+    return load(open(path, 'r'), SafeLoader)

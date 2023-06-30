@@ -1,6 +1,6 @@
-import yaml
-from dash import Input, Output, State, dcc, html, clientside_callback, no_update
 import dash_bootstrap_components as dbc
+from dash import Input, Output, State, dcc, html, clientside_callback, no_update
+from yaml import SafeLoader, load
 from raymarch import render_scene
 from builder import check_scene_dict, build_scene
 from utils.plot import imshow
@@ -109,7 +109,7 @@ def setup(app) -> None:
         '''Saves the editable scene config to the store if it is valid.
         Otherwise, shows an error popover.'''
         try:
-            scene_dict = yaml.load(scene_str, Loader=yaml.SafeLoader)
+            scene_dict = load(scene_str, Loader=SafeLoader)
             check_scene_dict(scene_dict)
             store = {'scene_dict': scene_dict, 'scene_str': scene_str}
             return store, False, False, no_update, no_update
@@ -124,7 +124,7 @@ def setup(app) -> None:
     def load_scene_str_from_store(is_open: bool, store: dict) -> str:
         '''Resets the editable scene config to the valid one in the store
         when the offcanvas is closed.'''
-        if is_open:
+        if not is_open:
             return no_update
         if store is not None:
             return store['scene_str']

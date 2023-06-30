@@ -120,9 +120,9 @@ def check_fields(obj: dict, fields: Dict[str, type]) -> None:
 
 
 if __name__ == '__main__':
-    from yaml import SafeLoader, load
+    from utils.plot import load_yaml
 
-    scene_dict = load(open('scenes/scene.yml', 'r'), SafeLoader)
+    scene_dict = load_yaml('scenes/sphere.yaml')
 
     pos = np.zeros((3))
     check_type('pos', pos, rm.Vec3)
