@@ -27,9 +27,6 @@ def tetrahedron():
 
 
 if __name__ == '__main__':
-    from builder import build_scene
-    from utils.plot import load_yaml, go
-
-    scene, _ = build_scene(load_yaml('scenes/sphere.yaml'))
+    from plotly import graph_objects as go
 
     go.Figure(go.Mesh3d(**tetrahedron())).show()
