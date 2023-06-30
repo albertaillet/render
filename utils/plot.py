@@ -1,7 +1,7 @@
 from PIL import Image
 from io import BytesIO
-from numpy import uint8
 from base64 import b64encode
+from numpy import isnan, uint8
 from yaml import SafeLoader, load
 from plotly import graph_objects as go
 
@@ -31,7 +31,9 @@ def imshow(im: Optional[ArrayLike] = None, view_size: Tuple[int, int] = (0, 0)) 
 
 
 def to_rgb(im: ArrayLike) -> ArrayLike:
-    return uint8(255.0 * im.clip(0.0, 1.0))
+    if isnan(im).any():
+        im = fill_nan(im)
+    return uint8(255 * im.clip(0.0, 1.0))
 
 
 def to_pil(im: ArrayLike) -> Image:
@@ -46,3 +48,16 @@ def to_base_64(im: Image) -> str:
 
 def load_yaml(path: str) -> dict:
     return load(open(path, 'r'), SafeLoader)
+
+
+def fill_nan(im: ArrayLike) -> ArrayLike:
+    # highlight the nan pixels in red
+    from jax import numpy as np, vmap
+
+    def color_nan_pixel(x: ArrayLike) -> ArrayLike:
+        return np.where(np.isnan(x).any(), np.array([1, 0, 0]), x)
+
+    if len(im.shape) == 2:
+        im = np.tile(im.reshape(*im.shape, 1), (1, 1, 3))
+
+    return vmap(vmap(color_nan_pixel))(im)

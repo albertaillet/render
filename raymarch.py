@@ -1,5 +1,4 @@
-from jax import numpy as np
-from jax import lax, vmap, grad, jit
+from jax import vmap, grad, jit, lax, numpy as np
 from functools import partial
 from utils.linalg import norm, normalize, softmax, relu, smoothmin, Rxyz
 
@@ -38,7 +37,7 @@ OBJECT_IDX = {
     'Plane': 2,
     'Torus': 3,
 }
-BRANCHES = [sdf_box, sdf_sphere, sdf_plane, sdf_torus]
+BRANCHES = (sdf_box, sdf_sphere, sdf_plane, sdf_torus)
 
 
 class Camera(NamedTuple):
@@ -72,10 +71,10 @@ class Scene(NamedTuple):
     smoothing: Scalar
 
     def sdfs(self, p: Vec3) -> Scalars:
-        def switch(p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3):
+        def switch(obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3):
             return lax.switch(obj_idx, BRANCHES, (p - pos) @ Rxyz(rot), attr)
 
-        dists = vmap(partial(switch, p))(
+        dists = vmap(switch)(
             self.objects,
             self.positions,
             self.attributes,
@@ -97,35 +96,28 @@ def raymarch(sdf: Callable, p0: Vec3, dir: Vec3, n_steps: int = 50) -> Vec3:
     return lax.fori_loop(0, n_steps, march_step, p0)
 
 
-def cast_shadow(
-    sdf: Callable, light_dir: Vec3, p0: Vec3, n_steps: int = 50, hardness: float = 4.0
-) -> Scalar:
+def shade(sdf: Callable, light_dir: Vec3, p0: Vec3, n_steps: int = 50, k: float = 4.0) -> Scalar:
     def shade_step(_, carry):
         t, shadow = carry
         h = sdf(p0 + light_dir * t)
-        return t + h, np.clip(hardness * h / t, 0.0, shadow)
+        return t + h, np.clip(k * h / t, 0.0, shadow)
 
     _, shadow = lax.fori_loop(0, n_steps, shade_step, (1e-2, 1.0))
     return shadow
 
 
-def shade_f(
-    surface_color: Vec3,
-    raw_normal: Vec3,
-    ray_dir: Vec3,
-    shadow: Vec3,
-    light_dir: Vec3,
-) -> Scalar:
-    ambient = norm(raw_normal)
-    normal = raw_normal / ambient
-    diffuse = light_dir.dot(normal).clip(0.0) * shadow
-    half = normalize(light_dir - ray_dir)
-    spec = 0.3 * shadow * half.dot(normal).clip(0.0) ** 200.0
-    light = 0.8 * diffuse + 0.2 * ambient
-    return surface_color * light + spec
-
-
-LIGHT_DIR = normalize(np.array([1.5, 1.0, 0.2]))
+LIGHT_DIR = np.array([0, 0, 1])
+IMAGE_NAMES = (
+    'image',
+    'normal',
+    'color',
+    'shadow',
+    'diffuse',
+    'ambient',
+    'specularity',
+    'coordinate',
+    'depth',
+)
 
 
 @partial(jit, static_argnames=('view_size'))
@@ -134,45 +126,59 @@ def render_scene(
     camera: Camera,
     view_size: Tuple[int, int],
     click: Tuple[int, int],
-    light_dir: Vec3 = LIGHT_DIR,
 ) -> Dict[str, Array]:
     h, w = view_size
     i, j = click
-    ray_dir = camera(view_size)
+    rays = camera(view_size)
 
-    hit_pos = vmap(partial(raymarch, scene.sdf, camera.position))(ray_dir)
-    surface_color = vmap(scene.color)(hit_pos)
-    raw_normal = vmap(grad(scene.sdf))(hit_pos)
+    hits = vmap(partial(raymarch, scene.sdf, camera.position))(rays)
+    color = vmap(scene.color)(hits)
+    raw_normal = vmap(grad(scene.sdf))(hits)
 
-    light_dir = np.where(i == -1, light_dir, raw_normal[i * w + j])
-    light_dir = normalize(light_dir)
-    shadow = vmap(partial(cast_shadow, scene.sdf, light_dir))(hit_pos)
-    image = vmap(partial(shade_f, light_dir=light_dir))(surface_color, raw_normal, ray_dir, shadow)
+    ambient = norm(raw_normal, keepdims=True)
+    normal: Array = raw_normal / ambient
 
+    light_dir = np.where(i == -1, LIGHT_DIR, normal[i * w + j])
+    shadow = vmap(partial(shade, scene.sdf, light_dir))(hits).reshape(-1, 1)
+
+    diffuse = normal.dot(light_dir).clip(0.0).reshape(-1, 1)
+    specularity = (normal * normalize(light_dir - rays)).sum(axis=1, keepdims=True).clip(0.0) ** 200
+
+    light = 0.8 * shadow * diffuse + 0.2 * ambient
+    image = color * light + 0.3 * shadow * specularity
     image = image ** (1.0 / 2.2)  # gamma correction
 
-    distances = norm(hit_pos - camera.position, axis=1)
+    depth = norm(hits - camera.position)
 
     return {
-        'image': image.reshape((h, w, 3)),
-        'normal': normalize(raw_normal).reshape((h, w, 3)),
-        'coordinate': (hit_pos % 1.0).reshape((h, w, 3)),
-        'distance': (distances / distances.max()).reshape((h, w)),
+        'image': image.reshape(h, w, 3),
+        'normal': normal.reshape(h, w, 3),
+        'coordinate': (hits % 1).reshape(h, w, 3),
+        'shadow': shadow.reshape(h, w),
+        'depth': (depth / depth.max()).reshape(h, w),
+        'specularity': specularity.reshape(h, w),
+        'diffuse': diffuse.reshape(h, w),
+        'ambient': ambient.reshape(h, w),
+        'color': color.reshape(h, w, 3),
     }
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
     from builder import build_scene
+    from matplotlib import pyplot as plt
     from utils.plot import load_yaml, to_rgb
 
-    scene_dict = load_yaml('scenes/scene.yml')
+    plt.style.use('grayscale')
 
-    out = render_scene(**build_scene(scene_dict), click=(-1, -1))
+    out = render_scene(**build_scene(load_yaml('scenes/snowman.yml')), click=(-1, -1))
 
-    fig, axs = plt.subplots(1, len(out))
-    for ax, (name, im) in zip(axs, out.items()):
-        ax.imshow(to_rgb(im))
-        ax.set_title(name)
+    rows = 2
+    cols = len(IMAGE_NAMES) // rows + (len(IMAGE_NAMES) % rows > 0)
+    fig, axs = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows))
+    for ax, name in zip(axs.flatten(), IMAGE_NAMES):
+        ax.imshow(to_rgb(out[name]))
+        ax.set_title(name.capitalize())
+    for ax in axs.flatten():
         ax.axis('off')
+    plt.tight_layout()
     plt.show()
