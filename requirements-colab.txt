@@ -1,10 +1,10 @@
-numpy>=1.21.6
-jax>=0.3.25
-jaxlib>=0.3.25
-jaxtyping==0.2.14
+numpy
+jax
+jaxlib
+jaxtyping==0.2.20
 typeguard==2.13.3
-plotly>=5.5.0
-jupyter-dash==0.4.2
+plotly
+dash==2.11.1
 dash-bootstrap-components==1.2.1
 PyYAML==6.0
 Pillow>=7.1.2
