@@ -1,0 +1,46 @@
+# https://en.wikipedia.org/wiki/Cornell_box
+width: 200
+height: 200
+smoothing: 0.01
+Camera:
+    position: [2.3, 1.4, 0]
+    target: [0, 0.5, 0]
+    up: [0, 1, 0]
+    fov: 0.6
+Objects:
+    - Box:
+        position: [-0.2, 0.5, 0.3]
+        attribute: [0.3, 0.5, 0.3]
+        rotation: [0, 0.5, 0]
+        color: [0.8, 0.7, 0.7]
+        rounding: 0
+    - Sphere:
+        position: [0.2, 0.3, -0.3]
+        attribute: [0.3, 0, 0]
+        rotation: [0, 0, 0]
+        color: [0, 0, 0.7]
+        rounding: 0
+    - Plane: # floor
+        position: [0, 0, 0]
+        attribute: [0, 1, 0]
+        rotation: [0, 0, 0]
+        color: [1, 1, 1]
+        rounding: 0
+    - Box: # right wall
+        position: [0, 1, 1.1]
+        attribute: [1, 1, 0]
+        rotation: [0, 0, 0]
+        color: [0, 1, 0]
+        rounding: 0.1
+    - Box: # left wall
+        position: [0, 1, -1.1]
+        attribute: [1, 1, 0]
+        rotation: [0, 0, 0]
+        color: [1, 0, 0]
+        rounding: 0.1
+    - Box: # back wall
+        position: [-1.1, 1, 0]
+        attribute: [0, 1, 1]
+        rotation: [0, 0, 0]
+        color: [1, 1, 1]
+        rounding: 0.1
