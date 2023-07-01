@@ -4,10 +4,12 @@ from utils.linalg import norm, normalize, softmax, relu, smoothmin, Rxyz
 
 # typing
 from typing import Callable, Tuple, Dict, NamedTuple
-from jaxtyping import Array, Float32, UInt8
+from jaxtyping import Array, Float32, UInt8, Bool
 
 Vec3 = Float32[Array, '3']
 Vec3s = Float32[Array, 'n 3']
+Bool3 = Bool[Array, '3']
+Bool3s = Bool[Array, 'n 3']
 Scalar = Float32[Array, '']
 Scalars = Float32[Array, 'n']
 UInts = UInt8[Array, 'n']
@@ -67,18 +69,24 @@ class Scene(NamedTuple):
     attributes: Vec3s
     rotations: Vec3s
     colors: Vec3s
+    mirrorings: Bool3s
     roundings: Scalars
     smoothing: Scalar
 
     def sdfs(self, p: Vec3) -> Scalars:
-        def switch(obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3) -> Scalar:
-            return lax.switch(obj_idx, BRANCHES, (p - pos) @ Rxyz(rot), attr)
+        def switch(
+            p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3, mirror: Bool3
+        ) -> Scalar:
+            p = np.where(mirror, np.abs(p), p)
+            p = (p - pos) @ Rxyz(rot)
+            return lax.switch(obj_idx, BRANCHES, p, attr)
 
-        dists = vmap(switch)(
+        dists = vmap(partial(switch, p))(
             self.objects,
             self.positions,
             self.attributes,
             self.rotations,
+            self.mirrorings,
         )
         return dists - self.roundings
 

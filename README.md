@@ -2,6 +2,10 @@
 
 Dash app to interact with raymarching in JAX. Toy project to learn about raymarching.
 
+Try it out using colab:
+
+<a href="https://colab.research.google.com/github/albertaillet/render/blob/main/colab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
 Here are two examples of rendered scenes, a bunch of spheres and a strange snowman:
 <p float="left">
 <img src="assets/spheres.png" width="45%" title="Spheres">
@@ -15,7 +19,7 @@ The scene can also be modified while in the app, it is represented in a yaml for
 ```yaml
 width: 200
 height: 200
-smoothing: 0.125
+smoothing: 0.07
 Camera:
     position: [1, 1, 0]
     target: [0, 0.5, 0]
@@ -23,28 +27,20 @@ Camera:
     fov: 0.6
 Objects:
     - Sphere:
-        position: [0, 0.5, 0]
+        position: [0, 0.7, 0]
         attribute: [0.1, 0, 0]
-        rotation: [0, 0, 0]
-        color: [0, 0, 1]
-        rounding: 0.0
+        rotation: [6, 1, 0]
+        color: [1, 1, 0.5]
     - Box:
-        position: [0, 0.5, -0.5]
-        attribute: [0.1, 0.1, 0.1]
-        rotation: [0, 0, 0]
-        color: [0, 1, 0]
-        rounding: 0.0
+        position: [0, 0.3, 0]
+        attribute: [0.1, 0.2, 0.3]
+        rotation: [0, 0.5, 0]
+        color: [1, 0.4, 1]
+        rounding: 0.04
     - Plane:
-        position: [-2, 0, 0]
-        attribute: [1, 0, 0]
-        rotation: [0, 0, 0]
+        attribute: [0, 1, 0]
         color: [1, 1, 1]
-        rounding: 0.0
 ```
-
-Try it out using colab:
-
-<a href="https://colab.research.google.com/github/albertaillet/render/blob/main/colab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
 ## Usage
 

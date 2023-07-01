@@ -5,8 +5,9 @@ import raymarch as rm
 from jax import tree_map, numpy as np
 
 # typing
-from typeguard import check_type
-from typing import Dict, Tuple, Any, Union
+from inspect import signature
+from typeguard import check_type, typechecked
+from typing import Tuple, Union, Dict, Any
 
 CAMERA_FIELDS = {
     'position': Tuple[float, float, float],
@@ -14,13 +15,22 @@ CAMERA_FIELDS = {
     'up': Tuple[float, float, float],
     'fov': float,
 }
-OBJECT_FIELDS = {
-    'position': Tuple[float, float, float],
-    'attribute': Tuple[float, float, float],
-    'color': Tuple[float, float, float],
-    'rotation': Tuple[float, float, float],
-    'rounding': float,
-}
+
+
+@typechecked
+def create_obj_dict(
+    attribute: Tuple[float, float, float],
+    color: Tuple[float, float, float] = (0, 0, 0),
+    position: Tuple[float, float, float] = (0, 0, 0),
+    rotation: Tuple[float, float, float] = (0, 0, 0),
+    mirror: Tuple[float, float, float] = (0, 0, 0),
+    rounding: float = 0,
+) -> Dict[str, Any]:
+    return locals()
+
+
+def cast_to_tuple(x: Any) -> Any:
+    return tuple(x) if isinstance(x, list) else x
 
 
 def is_leaf(node: Any) -> bool:
@@ -38,18 +48,21 @@ def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[
     camera = rm.Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
 
     objects = []
-    object_args = {arg + 's': [] for arg in OBJECT_FIELDS}
+    object_args = {arg + 's': [] for arg in signature(create_obj_dict).parameters}
     for obj_dict in object_dict_list:
         obj_type, obj = next(iter(obj_dict.items()))
-        idx = rm.OBJECT_IDX[obj_type]
-        objects.append(idx)
-        for arg in OBJECT_FIELDS:
-            object_args[arg + 's'].append(obj[arg])
+        objects.append(rm.OBJECT_IDX[obj_type])
+        obj_dict = create_obj_dict(**tree_map(cast_to_tuple, obj, is_leaf=is_leaf))
+        for arg_name, arg in obj_dict.items():
+            object_args[arg_name + 's'].append(arg)
+
+    object_args = tree_map(np.float32, object_args, is_leaf=is_leaf)
+    object_args['mirrorings'] = object_args.pop('mirrors').astype(np.bool_)
 
     return {
         'scene': rm.Scene(
             objects=np.uint8(objects),
-            **tree_map(np.float32, object_args, is_leaf=is_leaf),
+            **object_args,
             smoothing=np.float32(smoothing),
         ),
         'camera': camera,
@@ -70,22 +83,19 @@ def check_scene_dict(scene_dict: dict) -> None:
     for outer_obj_dict in scene_dict.get('Objects'):
         for obj_type, obj in outer_obj_dict.items():
             assert obj_type in rm.OBJECT_IDX, f'Unknown object type {obj_type}'
-            check_fields(obj, OBJECT_FIELDS)
+            create_obj_dict(**tree_map(cast_to_tuple, obj, is_leaf=is_leaf))
 
 
 def check_fields(obj: dict, fields: Dict[str, type]) -> None:
     check_type('obj', obj, dict)
 
-    provided = set(obj.keys())
-    required = set(fields.keys())
+    provided, required = set(obj.keys()), set(fields.keys())
     if provided != required:
         raise ValueError(f'{obj} has {provided} fields and should have {required}')
 
     for argname, argtype in fields.items():
         # cast lists to tuples to be able to check length
-        arg = obj[argname]
-        arg = tuple(arg) if isinstance(arg, list) else arg
-        check_type(argname, arg, argtype)
+        check_type(argname, cast_to_tuple(obj[argname]), argtype)
 
 
 if __name__ == '__main__':
@@ -93,10 +103,10 @@ if __name__ == '__main__':
     from utils.plot import load_yaml
 
     for path in Path('scenes').glob('*.yml'):
-        print(f'Checking {path}')
         scene_dict = load_yaml(path)
         check_scene_dict(scene_dict)
         out = build_scene(scene_dict)
         check_type('scene', out['scene'], rm.Scene)
         check_type('camera', out['camera'], rm.Camera)
         check_type('view_size', out['view_size'], Tuple[int, int])
+        print('Checked', path.name)
