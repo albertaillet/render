@@ -123,7 +123,6 @@ def shade(sdf: Callable, light_dir: Vec3, p0: Vec3, n_steps: int = 50, k: float 
     return lax.fori_loop(0, n_steps, shade_step, (1.0, 1e-2))[0]
 
 
-LIGHT_DIR = np.array([0, 0, 1])
 IMAGE_NAMES = (
     'image',
     'normal',
@@ -143,6 +142,7 @@ def render_scene(
     camera: Camera,
     view_size: Tuple[int, int],
     click: Tuple[int, int],
+    light_dir: Vec3,
 ) -> Dict[str, Array]:
     h, w = view_size
     i, j = click
@@ -155,7 +155,7 @@ def render_scene(
     ambient = norm(raw_normal, keepdims=True)
     normal: Array = raw_normal / ambient
 
-    light_dir = np.where(i == -1, LIGHT_DIR, normal[i * w + j])
+    light_dir = lax.cond(i == -1, lambda: normalize(light_dir), lambda: normal[i * w + j])
     shadow = vmap(partial(shade, scene.sdf, light_dir))(hits).reshape(-1, 1)
 
     diffuse = normal.dot(light_dir).clip(0.0).reshape(-1, 1)

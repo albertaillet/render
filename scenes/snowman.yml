@@ -1,37 +1,42 @@
 width: 200
 height: 200
-smoothing: 0.125
+smoothing: 0.12
+light_dir: [0.5, 1, -0.5]
 Camera:
-    position: [3, 5, 3]
-    target: [0, 0, 0]
+    position: [3, 4, 0]
+    target: [0, 1, 0]
     up: [0, 1, 0]
     fov: 0.6
 Objects:
-    - Sphere:
+    - Sphere:  # bottom snowball
         position: [0, 0, 0]
         attribute: [0.8, 0, 0]
         color: [1, 1, 1]
-    - Sphere:
+    - Sphere:  # middle snowball
         position: [0, 1, 0]
         attribute: [0.6, 0, 0]
         color: [1, 1, 1]
-    - Sphere:
+    - Sphere:  # head
         position: [0, 2, 0]
         attribute: [0.4, 0, 0]
         color: [1, 1, 1]
-    - Sphere:
-        position: [0.4, 2.1, 0.4]
+    - Sphere:  # nose
+        position: [0.55, 2.1, 0]
         attribute: [0.05, 0, 0]
-        color: [0.9, 0.5, 0]
-    - Sphere:
-        position: [0.41, 2.4, 0.1]
+        color: [0.9, 0.5, 0.1]
+    - Sphere:  # eyes
+        position: [0.33, 2.4, 0.2]
         attribute: [0.01, 0, 0]
         color: [0, 0, 0]
-    - Sphere:
-        position: [0.1, 2.4, 0.41]
-        attribute: [0.01, 0, 0]
-        color: [0, 0, 0]
-    - Plane:
+        mirror: [0, 0, 1]
+    - Box:  # arms
+        position: [0, 1, 0.8]
+        attribute: [0, 0, 0.5]
+        color: [0.5, 0.3, 0.1]
+        rotation: [0.6, 0, 0]
+        mirror: [0, 0, 1]
+        rounding: 0.1
+    - Plane:  # floor
         position: [0, 0, 0]
         attribute: [0, 1, 0]
         color: [1, 1, 1]

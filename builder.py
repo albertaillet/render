@@ -42,6 +42,7 @@ def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[
 
     view_size = scene_dict['height'], scene_dict['width']
     smoothing = scene_dict['smoothing']
+    light_dir = scene_dict['light_dir']
     camera_dict = scene_dict['Camera']
     object_dict_list = scene_dict['Objects']
 
@@ -67,6 +68,7 @@ def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[
         ),
         'camera': camera,
         'view_size': view_size,
+        'light_dir': np.float32(light_dir),
     }
 
 
@@ -77,6 +79,7 @@ def check_scene_dict(scene_dict: dict) -> None:
         assert scene_dict[argname] > 0, f'{argname} must be positive'
 
     check_type('smoothing', scene_dict.get('smoothing'), float)
+    check_type('light_dir', cast_to_tuple(scene_dict.get('light_dir')), Tuple[float, float, float])
 
     check_fields(scene_dict.get('Camera'), CAMERA_FIELDS)
 
