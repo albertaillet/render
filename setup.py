@@ -1,15 +1,6 @@
 import dash_bootstrap_components as dbc
-from dash import (
-    Input,
-    Output,
-    State,
-    dcc,
-    html,
-    clientside_callback,
-    no_update,
-    callback_context,
-    ALL,
-)
+from dash import Input, Output, State, clientside_callback, no_update, callback_context, ALL
+from dash.dcc import Graph, Store
 from yaml import SafeLoader, load
 from raymarch import render_scene, IMAGE_NAMES
 from builder import check_scene_dict, build_scene
@@ -34,88 +25,73 @@ def setup(app) -> None:
     FILES = sorted(Path('scenes').glob('*.yml'))
     app.title = 'Render'
 
-    app.layout = html.Div(
+    app.layout = dbc.Container(
         [
-            dbc.Container(
+            dbc.Button(
+                'Download Image',
+                id=GRAPH_DOWNLOAD_BUTTON_ID,
+                style={'margin': '10px 5px 10px 5px'},
+            ),
+            dbc.DropdownMenu(
                 [
-                    html.H2('Render'),
-                    dbc.Button(
-                        'Download Image',
-                        id=GRAPH_DOWNLOAD_BUTTON_ID,
-                        style={'margin': '10px 5px 10px 5px'},
-                    ),
-                    dbc.DropdownMenu(
+                    dbc.DropdownMenuItem(file.stem, id={'type': FILE_LOAD_DROPDOWN_ID, 'index': i})
+                    for i, file in enumerate(FILES)
+                ],
+                label='Load Scene from File',
+                id=FILE_LOAD_DROPDOWN_ID,
+                style={'margin': '10px 5px 10px 5px', 'display': 'inline-block'},
+            ),
+            dbc.RadioItems(
+                options=[{'label': name.capitalize(), 'value': name} for name in IMAGE_NAMES],
+                value=IMAGE_NAMES[0],
+                inline=True,
+                id=VIEW_CHOICE_ID,
+                persistence=True,
+                style={'margin': '0px 5px 10px 5px'},
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
                         [
-                            dbc.DropdownMenuItem(
-                                file.stem,
-                                id={'type': FILE_LOAD_DROPDOWN_ID, 'index': i},
-                                n_clicks=0,
-                            )
-                            for i, file in enumerate(FILES)
-                        ],
-                        label='Load Scene from File',
-                        id=FILE_LOAD_DROPDOWN_ID,
-                        # make it inline with the other buttons
-                        style={'margin': '10px 5px 10px 5px', 'display': 'inline-block'},
-                    ),
-                    dcc.RadioItems(
-                        options={name: name.capitalize() for name in IMAGE_NAMES},
-                        value=IMAGE_NAMES[0],
-                        inline=True,
-                        id=VIEW_CHOICE_ID,
-                        persistence=True,
-                        style={'margin': '0px 5px 10px 5px'},
-                    ),
-                    dbc.Row(
-                        [
-                            dbc.Col(
+                            dbc.Textarea(
+                                placeholder='Scene data',
+                                id=EDIT_CODE_ID,
+                                size='sm',
+                                required=True,
+                                style={
+                                    'width': '100%',
+                                    'height': '100%',
+                                    'backgroundColor': '#343a40',
+                                    'color': '#fff',
+                                },
+                                persisted_props=['value'],
+                            ),
+                            dbc.Popover(
                                 [
-                                    dbc.Textarea(
-                                        placeholder='Scene data',
-                                        id=EDIT_CODE_ID,
-                                        size='sm',
-                                        required=True,
-                                        style={
-                                            'width': '100%',
-                                            'height': '100%',
-                                            'backgroundColor': '#343a40',
-                                            'color': '#fff',
-                                        },
-                                        persisted_props=['value'],
-                                    ),
-                                    dbc.Popover(
-                                        [
-                                            dbc.PopoverHeader(id=EDIT_POPOVERHEADER_ID),
-                                            dbc.PopoverBody(id=EDIT_POPOVERBODY_ID),
-                                        ],
-                                        target=EDIT_CODE_ID,
-                                        id=EDIT_POPOVER_ID,
-                                    ),
+                                    dbc.PopoverHeader(id=EDIT_POPOVERHEADER_ID),
+                                    dbc.PopoverBody(id=EDIT_POPOVERBODY_ID),
                                 ],
-                                width=3,
-                                style={'height': '100%'},
-                            ),
-                            dbc.Col(
-                                html.Center(
-                                    dcc.Graph(
-                                        figure=imshow(),
-                                        id=GRAPH_ID,
-                                        config={
-                                            'displayModeBar': False,
-                                            'scrollZoom': False,
-                                            'doubleClick': False,
-                                        },
-                                    ),
-                                    style={'width': '100%'},
-                                ),
-                                style={'height': '100%'},
+                                target=EDIT_CODE_ID,
+                                id=EDIT_POPOVER_ID,
                             ),
                         ],
-                        style={'height': 'calc(100vh - 175px)'},
+                        width=3,
+                    ),
+                    dbc.Col(
+                        Graph(
+                            figure=imshow(),
+                            id=GRAPH_ID,
+                            config={
+                                'displayModeBar': False,
+                                'scrollZoom': False,
+                                'doubleClick': False,
+                            },
+                        )
                     ),
                 ],
+                style={'height': 'calc(100vh - 175px)'},
             ),
-            dcc.Store(
+            Store(
                 id=STORE_ID,
                 storage_type='session',
             ),
@@ -146,7 +122,7 @@ def setup(app) -> None:
         Input({'type': FILE_LOAD_DROPDOWN_ID, 'index': ALL}, 'n_clicks'),
         State(STORE_ID, 'data'),
     )
-    def load_scene_str_from_store(n_clicks: int, store: dict) -> str:
+    def load_scene_str_to_testarea(_, store: dict) -> str:
         '''Load the editable scene config from file or fill using the store on intial call.'''
         triggered_prop_ids = callback_context.triggered_prop_ids
         if triggered_prop_ids:  # if a file was clicked
