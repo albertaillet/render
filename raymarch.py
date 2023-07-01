@@ -91,10 +91,20 @@ class Scene(NamedTuple):
         return dists - self.roundings
 
     def sdf(self, p: Vec3) -> Scalar:
-        return smoothmin(self.sdfs(p), self.smoothing)
+        dists = self.sdfs(p)
+        return lax.cond(
+            self.smoothing > 0,
+            lambda: smoothmin(dists, self.smoothing),
+            lambda: np.min(dists),
+        )
 
     def color(self, p: Vec3) -> Scalar:
-        return softmax(-self.sdfs(p) / self.smoothing) @ self.colors
+        dists = self.sdfs(p)
+        return lax.cond(
+            self.smoothing > 0,
+            lambda: softmax(-dists / self.smoothing) @ self.colors,
+            lambda: self.colors[np.argmin(dists)],
+        )
 
 
 def raymarch(sdf: Callable, p0: Vec3, dir: Vec3, n_steps: int = 50) -> Vec3:
