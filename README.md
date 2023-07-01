@@ -6,10 +6,16 @@ Try it out using colab:
 
 <a href="https://colab.research.google.com/github/albertaillet/render/blob/main/colab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
-Here are two examples of rendered scenes, a bunch of spheres and a strange snowman:
+Here are three examples of rendered scenes and their corresponding normals:
 <p float="left">
-<img src="assets/spheres.png" width="45%" title="Spheres">
-<img src="assets/snowman.png" width="45%" title="A strange snowman">
+<img src="assets/cornell_box.png" width="32%" title="Cornell_box">
+<img src="assets/snowman.png" width="32%" title="A strange snowman">
+<img src="assets/airpods.png" width="32%" title="Spheres">
+</p>
+<p float="left">
+<img src="assets/cornell_box_normals.png" width="32%" title="A strange snowman">
+<img src="assets/snowman_normals.png" width="32%" title="Spheres">
+<img src="assets/airpods_normals.png" width="32%" title="A strange snowman">
 </p>
 
 While in the app, the scene lighting can be changed by clicking on the rendered scene.
