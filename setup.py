@@ -23,17 +23,15 @@ GRAPH_ID = 'graph'
 GRAPH_DOWNLOAD_BUTTON_ID = 'graph-download-button'
 VIEW_CHOICE_ID = 'view-choice'
 STORE_ID = 'store'
-EDIT_ACCESS_BUTTON_ID = 'edit-access-button'
-EDIT_OFFCANVAS_ID = 'edit-offcanvas'
 EDIT_CODE_ID = 'edit-code'
 EDIT_POPOVER_ID = 'edit-popover'
 EDIT_POPOVERHEADER_ID = 'edit-popoverheader'
 EDIT_POPOVERBODY_ID = 'edit-popoverbody'
 FILE_LOAD_DROPDOWN_ID = 'file-load-dropdown'
-FILES = sorted(Path('scenes').glob('*.yml'))
 
 
 def setup(app) -> None:
+    FILES = sorted(Path('scenes').glob('*.yml'))
     app.title = 'Render'
 
     app.layout = html.Div(
@@ -41,11 +39,6 @@ def setup(app) -> None:
             dbc.Container(
                 [
                     html.H2('Render'),
-                    dbc.Button(
-                        'Edit Scene',
-                        id=EDIT_ACCESS_BUTTON_ID,
-                        style={'margin': '10px 5px 10px 5px'},
-                    ),
                     dbc.Button(
                         'Download Image',
                         id=GRAPH_DOWNLOAD_BUTTON_ID,
@@ -71,48 +64,56 @@ def setup(app) -> None:
                         inline=True,
                         id=VIEW_CHOICE_ID,
                         persistence=True,
+                        style={'margin': '0px 5px 10px 5px'},
                     ),
-                ]
-            ),
-            html.Center(
-                dcc.Graph(
-                    figure=imshow(),
-                    id=GRAPH_ID,
-                    config={
-                        'displayModeBar': False,
-                        'scrollZoom': False,
-                        'doubleClick': False,
-                    },
-                ),
-                style={'width': '100%'},
-            ),
-            dbc.Offcanvas(
-                [
-                    dbc.Textarea(
-                        placeholder='Scene data',
-                        id=EDIT_CODE_ID,
-                        size='sm',
-                        required=True,
-                        style={
-                            'width': '100%',
-                            'height': '100%',
-                            'backgroundColor': '#343a40',
-                            'color': '#fff',
-                        },
-                        persisted_props=['value'],
-                    ),
-                    dbc.Popover(
+                    dbc.Row(
                         [
-                            dbc.PopoverHeader(id=EDIT_POPOVERHEADER_ID),
-                            dbc.PopoverBody(id=EDIT_POPOVERBODY_ID),
+                            dbc.Col(
+                                [
+                                    dbc.Textarea(
+                                        placeholder='Scene data',
+                                        id=EDIT_CODE_ID,
+                                        size='sm',
+                                        required=True,
+                                        style={
+                                            'width': '100%',
+                                            'height': '100%',
+                                            'backgroundColor': '#343a40',
+                                            'color': '#fff',
+                                        },
+                                        persisted_props=['value'],
+                                    ),
+                                    dbc.Popover(
+                                        [
+                                            dbc.PopoverHeader(id=EDIT_POPOVERHEADER_ID),
+                                            dbc.PopoverBody(id=EDIT_POPOVERBODY_ID),
+                                        ],
+                                        target=EDIT_CODE_ID,
+                                        id=EDIT_POPOVER_ID,
+                                    ),
+                                ],
+                                width=3,
+                                style={'height': '100%'},
+                            ),
+                            dbc.Col(
+                                html.Center(
+                                    dcc.Graph(
+                                        figure=imshow(),
+                                        id=GRAPH_ID,
+                                        config={
+                                            'displayModeBar': False,
+                                            'scrollZoom': False,
+                                            'doubleClick': False,
+                                        },
+                                    ),
+                                    style={'width': '100%'},
+                                ),
+                                style={'height': '100%'},
+                            ),
                         ],
-                        target=EDIT_CODE_ID,
-                        id=EDIT_POPOVER_ID,
+                        style={'height': 'calc(100vh - 175px)'},
                     ),
                 ],
-                autofocus=True,
-                id=EDIT_OFFCANVAS_ID,
-                title='Edit Scene',
             ),
             dcc.Store(
                 id=STORE_ID,
@@ -172,13 +173,6 @@ def setup(app) -> None:
         args = build_scene(store['scene_dict'])
         im = render_scene(**args, click=click).get(view)
         return imshow(im, args['view_size'])
-
-    clientside_callback(
-        '(n_clicks, is_open) => (n_clicks > 0) ? !is_open : is_open',
-        Output(EDIT_OFFCANVAS_ID, 'is_open'),
-        Input(EDIT_ACCESS_BUTTON_ID, 'n_clicks'),
-        State(EDIT_OFFCANVAS_ID, 'is_open'),
-    )
 
     clientside_callback(
         '''
