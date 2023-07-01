@@ -1,0 +1,23 @@
+width: 200
+height: 200
+smoothing: 0.07
+Camera:
+    position: [1, 1, 0]
+    target: [0, 0.5, 0]
+    up: [0, 1, 0]
+    fov: 0.6
+Objects:
+    - Sphere:
+        position: [0, 0.7, 0]
+        attribute: [0.1, 0, 0]
+        rotation: [6, 1, 0]
+        color: [1, 1, 0.5]
+    - Box:
+        position: [0, 0.3, 0]
+        attribute: [0.1, 0.2, 0.3]
+        rotation: [0, 0.5, 0]
+        color: [1, 0.4, 1]
+        rounding: 0.04
+    - Plane:
+        attribute: [0, 1, 0]
+        color: [1, 1, 1]
