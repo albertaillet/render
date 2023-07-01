@@ -1,9 +1,20 @@
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, dcc, html, clientside_callback, no_update
+from dash import (
+    Input,
+    Output,
+    State,
+    dcc,
+    html,
+    clientside_callback,
+    no_update,
+    callback_context,
+    ALL,
+)
 from yaml import SafeLoader, load
 from raymarch import render_scene, IMAGE_NAMES
 from builder import check_scene_dict, build_scene
 from utils.plot import imshow
+from pathlib import Path
 
 # typing
 from typing import Tuple
@@ -18,6 +29,8 @@ EDIT_CODE_ID = 'edit-code'
 EDIT_POPOVER_ID = 'edit-popover'
 EDIT_POPOVERHEADER_ID = 'edit-popoverheader'
 EDIT_POPOVERBODY_ID = 'edit-popoverbody'
+FILE_LOAD_DROPDOWN_ID = 'file-load-dropdown'
+FILES = sorted(Path('scenes').glob('*.yml'))
 
 
 def setup(app) -> None:
@@ -37,6 +50,20 @@ def setup(app) -> None:
                         'Download Image',
                         id=GRAPH_DOWNLOAD_BUTTON_ID,
                         style={'margin': '10px 5px 10px 5px'},
+                    ),
+                    dbc.DropdownMenu(
+                        [
+                            dbc.DropdownMenuItem(
+                                file.stem,
+                                id={'type': FILE_LOAD_DROPDOWN_ID, 'index': i},
+                                n_clicks=0,
+                            )
+                            for i, file in enumerate(FILES)
+                        ],
+                        label='Load Scene from File',
+                        id=FILE_LOAD_DROPDOWN_ID,
+                        # make it inline with the other buttons
+                        style={'margin': '10px 5px 10px 5px', 'display': 'inline-block'},
                     ),
                     dcc.RadioItems(
                         options={name: name.capitalize() for name in IMAGE_NAMES},
@@ -115,17 +142,18 @@ def setup(app) -> None:
 
     @app.callback(
         Output(EDIT_CODE_ID, 'value'),
-        Input(EDIT_OFFCANVAS_ID, 'is_open'),
+        Input({'type': FILE_LOAD_DROPDOWN_ID, 'index': ALL}, 'n_clicks'),
         State(STORE_ID, 'data'),
     )
-    def load_scene_str_from_store(is_open: bool, store: dict) -> str:
-        '''Resets the editable scene config to the valid one in the store
-        when the offcanvas is closed.'''
-        if not is_open:
-            return no_update
-        if store is not None:
+    def load_scene_str_from_store(n_clicks: int, store: dict) -> str:
+        '''Load the editable scene config from file or fill using the store on intial call.'''
+        triggered_prop_ids = callback_context.triggered_prop_ids
+        if triggered_prop_ids:  # if a file was clicked
+            idx = next(iter(triggered_prop_ids.values()))['index']
+            return open(FILES[idx], 'r').read()
+        elif store:  # if the store is not empty
             return store['scene_str']
-        return open('scenes/scene.yml', 'r').read()
+        return open(FILES[0], 'r').read()  # else load the first file
 
     @app.callback(
         Output(GRAPH_ID, 'figure'),
