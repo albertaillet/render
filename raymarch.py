@@ -71,7 +71,7 @@ class Scene(NamedTuple):
     smoothing: Scalar
 
     def sdfs(self, p: Vec3) -> Scalars:
-        def switch(obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3):
+        def switch(obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3) -> Scalar:
             return lax.switch(obj_idx, BRANCHES, (p - pos) @ Rxyz(rot), attr)
 
         dists = vmap(switch)(
@@ -98,12 +98,11 @@ def raymarch(sdf: Callable, p0: Vec3, dir: Vec3, n_steps: int = 50) -> Vec3:
 
 def shade(sdf: Callable, light_dir: Vec3, p0: Vec3, n_steps: int = 50, k: float = 4.0) -> Scalar:
     def shade_step(_, carry):
-        t, shadow = carry
+        res, t = carry
         h = sdf(p0 + light_dir * t)
-        return t + h, np.clip(k * h / t, 0.0, shadow)
+        return np.clip(k * h / t, 0.0, res), t + h
 
-    _, shadow = lax.fori_loop(0, n_steps, shade_step, (1e-2, 1.0))
-    return shadow
+    return lax.fori_loop(0, n_steps, shade_step, (1.0, 1e-2))[0]
 
 
 LIGHT_DIR = np.array([0, 0, 1])
@@ -152,7 +151,7 @@ def render_scene(
 
     return {
         'image': image.reshape(h, w, 3),
-        'normal': normal.reshape(h, w, 3),
+        'normal': (0.5 * normal + 0.5).reshape(h, w, 3),
         'coordinate': (hits % 1).reshape(h, w, 3),
         'shadow': shadow.reshape(h, w),
         'depth': (depth / depth.max()).reshape(h, w),
@@ -164,13 +163,15 @@ def render_scene(
 
 
 if __name__ == '__main__':
+    from sys import argv
     from builder import build_scene
     from matplotlib import pyplot as plt
     from utils.plot import load_yaml, to_rgb
 
     plt.style.use('grayscale')
+    file = argv[1] if len(argv) > 1 else 'scene'
 
-    out = render_scene(**build_scene(load_yaml('scenes/snowman.yml')), click=(-1, -1))
+    out = render_scene(**build_scene(load_yaml(f'scenes/{file}.yml')), click=(-1, -1))
 
     rows = 2
     cols = len(IMAGE_NAMES) // rows + (len(IMAGE_NAMES) % rows > 0)
