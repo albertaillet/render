@@ -8,14 +8,14 @@ Try it out using colab:
 
 Here are three examples of rendered scenes and their corresponding normals:
 <p float="left">
-<img src="assets/cornell_box.png" width="32%" title="Cornell_box">
+<img src="assets/cornell_box.png" width="32%" title="Cornell box">
 <img src="assets/snowman.png" width="32%" title="A strange snowman">
-<img src="assets/airpods.png" width="32%" title="Spheres">
+<img src="assets/airpods.png" width="32%" title="An airpods case">
 </p>
 <p float="left">
-<img src="assets/cornell_box_normals.png" width="32%" title="A strange snowman">
-<img src="assets/snowman_normals.png" width="32%" title="Spheres">
-<img src="assets/airpods_normals.png" width="32%" title="A strange snowman">
+<img src="assets/cornell_box_normals.png" width="32%" title="Cornell box normals">
+<img src="assets/snowman_normals.png" width="32%" title="A strange snowman normals">
+<img src="assets/airpods_normals.png" width="32%" title="An airpods case normals">
 </p>
 
 While in the app, the scene lighting can be changed by clicking on the rendered scene.
@@ -26,6 +26,7 @@ The scene can also be modified while in the app, it is represented in a yaml for
 width: 200
 height: 200
 smoothing: 0.07
+light_dir: [0.3, 1, -1]
 Camera:
     position: [1, 1, 0]
     target: [0, 0.5, 0]
@@ -50,7 +51,7 @@ Objects:
 
 ## Usage
 
-Install dependencies:
+Install python dependencies:
 
 ```
 pip install -r requirements.txt
@@ -61,6 +62,21 @@ Run the app:
 ```
 python app.py
 ```
+
+## Structure
+
+The repository is structured as follows:
+
+    ├── app.py                  # Main file to run the dash app.
+    ├── raymarch.py             # Raymarching JAX code.
+    ├── builder.py              # Code to build the scene from a yaml file.
+    ├── setup.py                # Code to setup the dash app layout and callbacks.
+    ├── utils                   # Miscellanous utility functions.
+    │   ├── plot.py             # Plotting functions.
+    │   └── linalg.py           # Linear algebra functions.
+    ├── scenes                  # Yaml files describing the scenes.
+    ├── assets                  # Assets for the app and the README.
+    └── README.md               # This file.
 
 ## References
 
