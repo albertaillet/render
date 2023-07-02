@@ -33,13 +33,20 @@ def sdf_torus(p: Vec3, t: Vec3) -> Scalar:
     return norm(q) - t[1]
 
 
+def sdf_ellipsoid(p: Vec3, r: Vec3) -> Scalar:
+    k0 = norm(p / r)
+    k1 = norm(p / (r * r))
+    return k0 * (k0 - 1) / k1
+
+
 OBJECT_IDX = {
     'Box': 0,
     'Sphere': 1,
     'Plane': 2,
     'Torus': 3,
+    'Ellipsoid': 4,
 }
-BRANCHES = (sdf_box, sdf_sphere, sdf_plane, sdf_torus)
+BRANCHES = (sdf_box, sdf_sphere, sdf_plane, sdf_torus, sdf_ellipsoid)
 
 
 class Camera(NamedTuple):
