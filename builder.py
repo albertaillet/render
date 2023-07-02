@@ -1,13 +1,10 @@
-'''Build Scene for raymarching from a dict
-For expected format of dict, see scenes/*.yml
-'''
-import raymarch as rm
-from jax import tree_map, numpy as np
+from jax import numpy as np, tree_map
+from raymarch import Scene, Camera, OBJECT_IDX
 
 # typing
 from inspect import signature
 from typeguard import check_type, typechecked
-from typing import Tuple, Union, Dict, Any
+from typing import Tuple, Dict, Any
 
 CAMERA_FIELDS = {
     'position': Tuple[float, float, float],
@@ -37,8 +34,8 @@ def is_leaf(node: Any) -> bool:
     return isinstance(node, list)
 
 
-def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[int, int]]]:
-    '''Create a scene from a dict of expected format (see top of file)'''
+def build_scene(scene_dict: dict) -> Dict[str, Any]:
+    '''Create a scene, camera and other parameters from a dict of expected format (see scene.yml)'''
 
     view_size = scene_dict['height'], scene_dict['width']
     smoothing = scene_dict['smoothing']
@@ -46,13 +43,13 @@ def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[
     camera_dict = scene_dict['Camera']
     object_dict_list = scene_dict['Objects']
 
-    camera = rm.Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
+    camera = Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
 
     objects = []
     object_args = {arg + 's': [] for arg in signature(create_obj_dict).parameters}
     for obj_dict in object_dict_list:
         obj_type, obj = next(iter(obj_dict.items()))
-        objects.append(rm.OBJECT_IDX[obj_type])
+        objects.append(OBJECT_IDX[obj_type])
         obj_dict = create_obj_dict(**tree_map(cast_to_tuple, obj, is_leaf=is_leaf))
         for arg_name, arg in obj_dict.items():
             object_args[arg_name + 's'].append(arg)
@@ -61,7 +58,7 @@ def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[
     object_args['mirrorings'] = object_args.pop('mirrors').astype(np.bool_)
 
     return {
-        'scene': rm.Scene(
+        'scene': Scene(
             objects=np.uint8(objects),
             **object_args,
             smoothing=np.float32(smoothing),
@@ -73,7 +70,7 @@ def build_scene(scene_dict: dict) -> Dict[str, Union[rm.Scene, rm.Camera, Tuple[
 
 
 def check_scene_dict(scene_dict: dict) -> None:
-    '''Check a scene dict for expected format (see top of file)'''
+    '''Check a scene dict for expected format (see scene.yml)'''
     for argname in ('height', 'width'):
         check_type(argname, scene_dict.get(argname), int)
         assert scene_dict[argname] > 0, f'{argname} must be positive'
@@ -85,7 +82,7 @@ def check_scene_dict(scene_dict: dict) -> None:
 
     for outer_obj_dict in scene_dict.get('Objects'):
         for obj_type, obj in outer_obj_dict.items():
-            assert obj_type in rm.OBJECT_IDX, f'Unknown object type {obj_type}'
+            assert obj_type in OBJECT_IDX, f'Unknown object type {obj_type}'
             create_obj_dict(**tree_map(cast_to_tuple, obj, is_leaf=is_leaf))
 
 
@@ -109,7 +106,7 @@ if __name__ == '__main__':
         scene_dict = load_yaml(path)
         check_scene_dict(scene_dict)
         out = build_scene(scene_dict)
-        check_type('scene', out['scene'], rm.Scene)
-        check_type('camera', out['camera'], rm.Camera)
+        check_type('scene', out['scene'], Scene)
+        check_type('camera', out['camera'], Camera)
         check_type('view_size', out['view_size'], Tuple[int, int])
         print('Checked', path.name)

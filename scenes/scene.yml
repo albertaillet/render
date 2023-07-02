@@ -1,31 +1,29 @@
-width: 200
-height: 200
-smoothing: 0.125
-light_dir: [1, 0.2, 0.1]
+width: 200 # scene width in pixels
+height: 200 # scene height in pixels
+smoothing: 0.125 # distance smoothing
+light_dir: [1, 0.2, 0.1] # light direction
 Camera:
     position: [1, 1, 0]
     target: [0, 0.5, 0]
     up: [0, 1, 0]
-    fov: 0.6
+    fov: 0.6 # camera field of view
 Objects:
-    - Sphere:
-        position: [0, 0.5, 0]
-        attribute: [0.1, 0.1, 0.1]
-        color: [0, 0, 1]
-    - Box:
-        position: [0, 0.5, -0.5]
-        attribute: [0.1, 0.1, 0.1]
+    - Sphere: # sphere object
+        attribute: [0.1, 0, 0] # attribute[0] of sphere is the radius
+        color: [0, 0, 1] # object RGB color
+        position: [-0.2, 0.5, 0.5] # object position
+        rotation: [0, 0, 0] # object rotation
+        mirror: [0, 0, 0] # if object is mirrored in each axis
+        rounding: 0.0 # object rounding
+    - Box: # box object
+        attribute: [0.1, 0.1, 0.1] # width in each axis
+        position: [-0.2, 0.5, 0]
         color: [0, 1, 0]
-    - Sphere:
-        position: [0, 0.5, 0.5]
-        attribute: [0.1, 0.1, 0.1]
+    - Ellipsoid: # ellipsoid object
+        attribute: [0.1, 0.25, 0.12] # 'radius' in each axis
+        position: [-0.2, 0.5, -0.5]
         color: [1, 1, 0]
-        rounding: 0.10
-    - Plane:
+    - Plane: # plane object
+        attribute: [0, 1, 0] # plane normal
         position: [0, 0, 0]
-        attribute: [0, 1, 0]
-        color: [1, 1, 1]
-    - Plane:
-        position: [-2, 0, 0]
-        attribute: [1, 0, 0]
         color: [1, 1, 1]

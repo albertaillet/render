@@ -75,7 +75,7 @@ def setup(app) -> None:
                                 id=EDIT_POPOVER_ID,
                             ),
                         ],
-                        width=3,
+                        width=4,
                     ),
                     dbc.Col(
                         Graph(
