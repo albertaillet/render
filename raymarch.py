@@ -1,6 +1,6 @@
 from jax import vmap, grad, jit, lax, numpy as np
 from functools import partial
-from utils.linalg import norm, normalize, softmax, relu, smoothmin, Rxyz
+from utils.linalg import norm, normalize, relu, smoothminimum, Rxyz
 
 # typing
 from typing import Callable, Tuple, Dict, NamedTuple
@@ -70,8 +70,9 @@ class Scene(NamedTuple):
     rotations: Vec3s
     colors: Vec3s
     mirrorings: Bool3s
+    smoothings: Scalars
     roundings: Scalars
-    smoothing: Scalar
+    smoothing: Scalar  # TODO: remove
 
     def sdfs(self, p: Vec3) -> Scalars:
         def switch(
@@ -91,20 +92,30 @@ class Scene(NamedTuple):
         return dists - self.roundings
 
     def sdf(self, p: Vec3) -> Scalar:
+        def union(min_d: Scalar, d_s: Array) -> Scalar:
+            d, s = d_s
+            min_d = lax.cond(
+                s > 0,
+                lambda: smoothminimum(min_d, d, s),
+                lambda: np.minimum(min_d, d),
+            )
+            return min_d, None
+
         dists = self.sdfs(p)
-        return lax.cond(
-            self.smoothing > 0,
-            lambda: smoothmin(dists, self.smoothing),
-            lambda: np.min(dists),
-        )
+        d_s = np.stack((dists, self.smoothings), axis=-1)
+        return lax.scan(union, np.inf, d_s)[0]
 
     def color(self, p: Vec3) -> Scalar:
         dists = self.sdfs(p)
+        '''
         return lax.cond(
             self.smoothing > 0,
             lambda: softmax(-dists / self.smoothing) @ self.colors,
             lambda: self.colors[np.argmin(dists)],
         )
+        TODO: adapt color code to handle using multiple smoothings
+        '''
+        return self.colors[np.argmin(dists)]
 
 
 def raymarch(sdf: Callable, p0: Vec3, dir: Vec3, n_steps: int = 50) -> Vec3:

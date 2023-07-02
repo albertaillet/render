@@ -24,6 +24,7 @@ def create_obj_dict(
     position: Tuple[float, float, float] = (0, 0, 0),
     rotation: Tuple[float, float, float] = (0, 0, 0),
     mirror: Tuple[float, float, float] = (0, 0, 0),
+    smoothing: float = 0,
     rounding: float = 0,
 ) -> Dict[str, Any]:
     return locals()

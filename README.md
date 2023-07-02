@@ -78,6 +78,27 @@ The repository is structured as follows:
     ├── assets                  # Assets for the app and the README.
     └── README.md               # This file.
 
+
+# Smooth min derivation
+
+Smooth min using only one smoothing parameter $c$:
+$$
+\begin{aligned}
+\text{smoothmin}(d, c)=-c\cdot\ln(\sum_i e^{-d_i/c})
+\end{aligned}
+$$
+
+Smooth min using one smoothing parameters for each distance $d_i$:
+$$
+\begin{aligned}
+\text{smoothmin}(d, c_1)&=-c_1\cdot\ln(e^{-d_1/c_1} + e^{-d_2/c_1})\\
+&Let \quad d_2 = \text{smoothmin}(d^{(2)}, c_2)\\
+\text{smoothmin}(d, c_1)&=-c_1\cdot\ln(e^{-d_1/c_1} + e^{-\text{smoothmin}(d^{(2)}, c_2)/c_1})\\
+&= -c_1\cdot\ln(e^{-d_1/c_1} + e^{-c_2\cdot\ln(\sum_i e^{-d_i^{(2)}/c_2})/c_1})\\
+&= -c_1\cdot\ln(e^{-d_1/c} + e^{-c_2/c_1 \cdot\ln(\sum_i e^{-d_i^{(2)}/c_2})})\\
+\end{aligned}
+$$
+
 ## References
 
 - Simple 3D visualization with JAX raycasting, Alexander Mordvintsev, September 23, 2022 ([post](
@@ -90,3 +111,7 @@ The repository is structured as follows:
 - 3D Signed Distance Functions, Inigo Quilez ([post](
     https://iquilezles.org/articles/distfunctions/), [code](
         https://www.shadertoy.com/view/Xds3zN))
+
+- Smooth Minimum, Inigo Quilez ([post](
+    https://iquilezles.org/www/articles/smin/smin.htm), [code](
+        https://www.shadertoy.com/view/tdGBDt))

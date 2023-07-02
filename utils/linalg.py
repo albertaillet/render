@@ -16,6 +16,10 @@ def smoothmin(x: Array, c: float = 0.125, **kwargs) -> Array:
     return -c * nn.logsumexp(-x / c, **kwargs)
 
 
+def smoothminimum(x1: Array, x2: Array, c: float = 0.125, **kwargs) -> Array:
+    return -c * np.logaddexp(-x1 / c, -x2 / c)
+
+
 def softmax(x: Array, *args, **kwargs) -> Array:
     return nn.softmax(x, *args, **kwargs)
 
