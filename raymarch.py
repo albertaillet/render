@@ -1,6 +1,6 @@
 from jax import vmap, grad, jit, lax, numpy as np
 from functools import partial
-from utils.linalg import norm, normalize, softmax, relu, smoothmin, Rxyz
+from utils.linalg import norm, normalize, softmax, relu, smoothmin, smoothabs, Rxyz
 
 # typing
 from typing import Callable, Tuple, Dict, NamedTuple
@@ -84,7 +84,7 @@ class Scene(NamedTuple):
         def switch(
             p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3, mirror: Bool3
         ) -> Scalar:
-            p = np.where(mirror, np.abs(p), p)
+            p = np.where(mirror, smoothabs(p, 1e-3), p)
             p = (p - pos) @ Rxyz(rot)
             return lax.switch(obj_idx, BRANCHES, p, attr)
 
