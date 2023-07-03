@@ -2,111 +2,106 @@ from jax import numpy as np, tree_map
 from raymarch import Scene, Camera, OBJECT_IDX
 
 # typing
-from inspect import signature
-from typeguard import check_type, typechecked
-from typing import Tuple, Dict, Any
+from typeguard import typechecked
+from typing import Tuple, TypedDict, Sequence, Any, Dict, List
 
-CAMERA_FIELDS = {
-    'position': Tuple[float, float, float],
-    'target': Tuple[float, float, float],
-    'up': Tuple[float, float, float],
-    'fov': float,
-}
+
+class CameraDict(TypedDict):
+    position: Tuple[float, float, float]
+    target: Tuple[float, float, float]
+    up: Tuple[float, float, float]
+    fov: float
+
+
+class ObjectDict(TypedDict):
+    attribute: Tuple[float, float, float]
+    color: Tuple[float, float, float]
+    position: Tuple[float, float, float]
+    rotation: Tuple[float, float, float]
+    mirror: Tuple[float, float, float]
+    rounding: float
+
+
+class SceneDict(TypedDict):
+    height: int
+    width: int
+    smoothing: float
+    light_dir: Tuple[float, float, float]
+    Camera: CameraDict
+    Objects: List[Tuple[str, ObjectDict]]
 
 
 @typechecked
-def create_obj_dict(
+def add_obj_dict_defaults(
     attribute: Tuple[float, float, float],
     color: Tuple[float, float, float] = (0, 0, 0),
     position: Tuple[float, float, float] = (0, 0, 0),
     rotation: Tuple[float, float, float] = (0, 0, 0),
     mirror: Tuple[float, float, float] = (0, 0, 0),
     rounding: float = 0,
-) -> Dict[str, Any]:
+) -> ObjectDict:
     return locals()
 
 
-def cast_to_tuple(x: Any) -> Any:
-    return tuple(x) if isinstance(x, list) else x
+def is_seq(x: Any) -> bool:
+    return isinstance(x, Sequence) and not any(isinstance(i, dict) for i in x)
 
 
-def is_leaf(node: Any) -> bool:
-    return isinstance(node, list)
+@typechecked
+def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
+    '''Check a scene dict for expected format and add default values where needed'''
+    for argname in ('height', 'width'):
+        assert scene_dict[argname] > 0, f'{argname} must be positive'
+
+    # cast all lists (that do not contain dicts) to tuples to be able to check length
+    scene_dict = tree_map(lambda x: tuple(x) if is_seq(x) else x, scene_dict, is_leaf=is_seq)
+
+    # checking the obj_names and adding default values where needed
+    for i in range(len(scene_dict['Objects'])):
+        obj_name, obj_dict = next(iter(scene_dict['Objects'][i].items()))  # first item of dict
+        assert obj_name in OBJECT_IDX, f'Unknown object name {obj_name}'
+        scene_dict['Objects'][i] = (obj_name, add_obj_dict_defaults(**obj_dict))
+
+    return scene_dict
 
 
-def build_scene(scene_dict: dict) -> Dict[str, Any]:
+def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
     '''Create a scene, camera and other parameters from a dict of expected format (see scene.yml)'''
 
     view_size = scene_dict['height'], scene_dict['width']
     smoothing = scene_dict['smoothing']
     light_dir = scene_dict['light_dir']
     camera_dict = scene_dict['Camera']
-    object_dict_list = scene_dict['Objects']
+    obj_names, obj_dicts = zip(*scene_dict['Objects'])
 
-    camera = Camera(**tree_map(np.float32, camera_dict, is_leaf=is_leaf))
-
-    objects = []
-    object_args = {arg + 's': [] for arg in signature(create_obj_dict).parameters}
-    for obj_dict in object_dict_list:
-        obj_type, obj = next(iter(obj_dict.items()))
-        objects.append(OBJECT_IDX[obj_type])
-        obj_dict = create_obj_dict(**tree_map(cast_to_tuple, obj, is_leaf=is_leaf))
-        for arg_name, arg in obj_dict.items():
-            object_args[arg_name + 's'].append(arg)
-
-    object_args = tree_map(np.float32, object_args, is_leaf=is_leaf)
-    object_args['mirrorings'] = object_args.pop('mirrors').astype(np.bool_)
+    obj_args = tree_map(lambda *xs: np.float32(xs), *obj_dicts, is_leaf=is_seq)  # transpose tree
+    obj_args = {k + 's': v for k, v in obj_args.items()}  # add 's' to pluralize keys
+    obj_args['mirrorings'] = obj_args.pop('mirrors').astype(np.bool_)  # convert mirrorings
 
     return {
         'scene': Scene(
-            objects=np.uint8(objects),
-            **object_args,
+            objects=np.uint8([OBJECT_IDX[o] for o in obj_names]),
+            **obj_args,
             smoothing=np.float32(smoothing),
         ),
-        'camera': camera,
+        'camera': Camera(**tree_map(np.float32, camera_dict, is_leaf=is_seq)),
         'view_size': view_size,
         'light_dir': np.float32(light_dir),
     }
 
 
-def check_scene_dict(scene_dict: dict) -> None:
-    '''Check a scene dict for expected format (see scene.yml)'''
-    for argname in ('height', 'width'):
-        check_type(argname, scene_dict.get(argname), int)
-        assert scene_dict[argname] > 0, f'{argname} must be positive'
-
-    check_type('smoothing', scene_dict.get('smoothing'), float)
-    check_type('light_dir', cast_to_tuple(scene_dict.get('light_dir')), Tuple[float, float, float])
-
-    check_fields(scene_dict.get('Camera'), CAMERA_FIELDS)
-
-    for outer_obj_dict in scene_dict.get('Objects'):
-        for obj_type, obj in outer_obj_dict.items():
-            assert obj_type in OBJECT_IDX, f'Unknown object type {obj_type}'
-            create_obj_dict(**tree_map(cast_to_tuple, obj, is_leaf=is_leaf))
-
-
-def check_fields(obj: dict, fields: Dict[str, type]) -> None:
-    check_type('obj', obj, dict)
-
-    provided, required = set(obj.keys()), set(fields.keys())
-    if provided != required:
-        raise ValueError(f'{obj} has {provided} fields and should have {required}')
-
-    for argname, argtype in fields.items():
-        # cast lists to tuples to be able to check length
-        check_type(argname, cast_to_tuple(obj[argname]), argtype)
-
-
 if __name__ == '__main__':
     from pathlib import Path
     from utils.plot import load_yaml
+    from typeguard import check_type
 
     for path in Path('scenes').glob('*.yml'):
         scene_dict = load_yaml(path)
-        check_scene_dict(scene_dict)
+        scene_dict = check_scene_dict(scene_dict)
         out = build_scene(scene_dict)
+        check_type('scene_dict', scene_dict, SceneDict)
         check_type('scene', out['scene'], Scene)
         check_type('camera', out['camera'], Camera)
         check_type('view_size', out['view_size'], Tuple[int, int])
+        check_type('light_dir', out['light_dir'], np.ndarray)
         print('Checked', path.name)
