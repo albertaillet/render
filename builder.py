@@ -5,8 +5,6 @@ from raymarch import Scene, Camera, OBJECT_IDX
 from typeguard import typechecked
 from typing import Tuple, TypedDict, Sequence, Any, Dict, List
 
-DictStr = Dict[str, Any]
-
 
 class CameraDict(TypedDict):
     position: Tuple[float, float, float]
@@ -49,7 +47,7 @@ def is_seq(x: Any) -> bool:
     return isinstance(x, Sequence) and not any(isinstance(i, dict) for i in x)
 
 
-def build_scene(scene_dict: SceneDict) -> DictStr:
+def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
     '''Create a scene, camera and other parameters from a dict of expected format (see scene.yml)'''
 
     view_size = scene_dict['height'], scene_dict['width']
@@ -75,7 +73,7 @@ def build_scene(scene_dict: SceneDict) -> DictStr:
 
 
 @typechecked
-def check_scene_dict(scene_dict: DictStr) -> SceneDict:
+def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
     '''Check a scene dict for expected format (see scene.yml)'''
     for argname in ('height', 'width'):
         assert scene_dict[argname] > 0, f'{argname} must be positive'
@@ -83,9 +81,9 @@ def check_scene_dict(scene_dict: DictStr) -> SceneDict:
     # cast all lists (that do not contain dicts) to tuples to be able to check length
     scene_dict = tree_map(lambda x: tuple(x) if is_seq(x) else x, scene_dict, is_leaf=is_seq)
 
-    # checking the obj_names and adding default parameters where needed
-    for i, outer_obj_dict in enumerate(scene_dict.get('Objects')):
-        obj_name, obj_dict = next(iter(outer_obj_dict.items()))
+    # checking the obj_names and adding default values where needed
+    for i in range(len(scene_dict['Objects'])):
+        obj_name, obj_dict = next(iter(scene_dict['Objects'][i].items()))  # first item of dict
         assert obj_name in OBJECT_IDX, f'Unknown object name {obj_name}'
         scene_dict['Objects'][i] = (obj_name, add_obj_dict_defaults(**obj_dict))
 
