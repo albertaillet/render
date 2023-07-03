@@ -47,6 +47,24 @@ def is_seq(x: Any) -> bool:
     return isinstance(x, Sequence) and not any(isinstance(i, dict) for i in x)
 
 
+@typechecked
+def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
+    '''Check a scene dict for expected format and add default values where needed'''
+    for argname in ('height', 'width'):
+        assert scene_dict[argname] > 0, f'{argname} must be positive'
+
+    # cast all lists (that do not contain dicts) to tuples to be able to check length
+    scene_dict = tree_map(lambda x: tuple(x) if is_seq(x) else x, scene_dict, is_leaf=is_seq)
+
+    # checking the obj_names and adding default values where needed
+    for i in range(len(scene_dict['Objects'])):
+        obj_name, obj_dict = next(iter(scene_dict['Objects'][i].items()))  # first item of dict
+        assert obj_name in OBJECT_IDX, f'Unknown object name {obj_name}'
+        scene_dict['Objects'][i] = (obj_name, add_obj_dict_defaults(**obj_dict))
+
+    return scene_dict
+
+
 def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
     '''Create a scene, camera and other parameters from a dict of expected format (see scene.yml)'''
 
@@ -70,24 +88,6 @@ def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
         'view_size': view_size,
         'light_dir': np.float32(light_dir),
     }
-
-
-@typechecked
-def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
-    '''Check a scene dict for expected format (see scene.yml)'''
-    for argname in ('height', 'width'):
-        assert scene_dict[argname] > 0, f'{argname} must be positive'
-
-    # cast all lists (that do not contain dicts) to tuples to be able to check length
-    scene_dict = tree_map(lambda x: tuple(x) if is_seq(x) else x, scene_dict, is_leaf=is_seq)
-
-    # checking the obj_names and adding default values where needed
-    for i in range(len(scene_dict['Objects'])):
-        obj_name, obj_dict = next(iter(scene_dict['Objects'][i].items()))  # first item of dict
-        assert obj_name in OBJECT_IDX, f'Unknown object name {obj_name}'
-        scene_dict['Objects'][i] = (obj_name, add_obj_dict_defaults(**obj_dict))
-
-    return scene_dict
 
 
 if __name__ == '__main__':
