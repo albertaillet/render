@@ -8,7 +8,7 @@ nbformat>=4.2.0
 jax==0.4.13
 jaxlib==0.4.13
 jaxtyping==0.2.20
-typeguard==2.13.3
+typeguard==4.0.0
 PyYAML==6.0
 Pillow==9.5.0
 pre-commit==3.3.3

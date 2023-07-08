@@ -2,7 +2,7 @@ numpy
 jax
 jaxlib
 jaxtyping==0.2.20
-typeguard==2.13.3
+typeguard==4.0.0
 plotly
 dash==2.11.1
 dash-bootstrap-components==1.2.1

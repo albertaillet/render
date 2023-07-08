@@ -110,8 +110,7 @@ def setup(app) -> None:
         '''Saves the editable scene config to the store if it is valid.
         Otherwise, shows an error popover.'''
         try:
-            scene_dict = load(scene_str, Loader=SafeLoader)
-            scene_dict = check_scene_dict(scene_dict)
+            scene_dict = check_scene_dict(load(scene_str, Loader=SafeLoader))
             store = {'scene_dict': scene_dict, 'scene_str': scene_str}
             return store, False, False, no_update, no_update
         except Exception as e:

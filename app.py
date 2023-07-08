@@ -1,12 +1,10 @@
 from dash import Dash
 from setup import setup
-import dash_bootstrap_components as dbc
+from dash_bootstrap_components import themes
 
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
+app = Dash(__name__, external_stylesheets=[themes.DARKLY])
 
 setup(app)
-
-server = app.server
 
 app.run_server(debug=True)

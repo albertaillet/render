@@ -189,14 +189,15 @@ def render_scene(
 
 if __name__ == '__main__':
     from sys import argv
-    from builder import build_scene
     from matplotlib import pyplot as plt
     from utils.plot import load_yaml, to_rgb
+    from builder import build_scene, check_scene_dict
 
     plt.style.use('grayscale')
     file = argv[1] if len(argv) > 1 else 'scene'
 
-    out = render_scene(**build_scene(load_yaml(f'scenes/{file}.yml')), click=(-1, -1))
+    scene_dict = check_scene_dict(load_yaml(f'scenes/{file}.yml'))
+    out = render_scene(**build_scene(scene_dict), click=(-1, -1))
 
     rows = 2
     cols = len(IMAGE_NAMES) // rows + (len(IMAGE_NAMES) % rows > 0)
