@@ -24,6 +24,7 @@ FILE_LOAD_DROPDOWN_ID = 'file-load-dropdown'
 def setup(app) -> None:
     FILES = sorted(Path('scenes').glob('*.yml'))
     app.title = 'Render'
+    app.config.external_stylesheets = [dbc.themes.DARKLY]
 
     app.layout = dbc.Container(
         [

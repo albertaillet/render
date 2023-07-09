@@ -4,7 +4,7 @@ Dash app to interact with raymarching in JAX. Toy project to learn about raymarc
 
 Try it out using colab:
 
-<a href="https://colab.research.google.com/github/albertaillet/render/blob/main/colab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+<a href="https://colab.research.google.com/github/albertaillet/render/blob/main/notebooks/colab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
 Here are three examples of rendered scenes and their corresponding normals:
 <p float="left">
@@ -54,7 +54,7 @@ Objects:
 Install python dependencies:
 
 ```
-pip install -r requirements.txt
+pip install -r requirements/requirements.txt
 ```
 
 Run the app:
@@ -76,6 +76,9 @@ The repository is structured as follows:
     │   └── linalg.py           # Linear algebra functions.
     ├── scenes                  # Yaml files describing the scenes.
     ├── assets                  # Assets for the app and the README.
+    ├── requirements            # Python requirements.
+    ├── notebooks               # Jupyter notebooks.
+    │   └── colab.ipynb         # Notebook to try out the app in colab.
     └── README.md               # This file.
 
 ## References
