@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, clientside_callback, no_update, callback_context, ALL
 from dash.dcc import Graph, Store
 from yaml import SafeLoader, load
-from raymarch import render_scene, IMAGE_NAMES
+from raymarch import RenderedImages, render_scene
 from builder import check_scene_dict, build_scene
 from utils.plot import imshow
 from pathlib import Path
@@ -43,8 +43,8 @@ def setup(app) -> None:
                 style={'margin': '10px 5px 10px 5px', 'display': 'inline-block'},
             ),
             dbc.RadioItems(
-                options=[{'label': name.capitalize(), 'value': name} for name in IMAGE_NAMES],
-                value=IMAGE_NAMES[0],
+                options=[{'label': n.capitalize(), 'value': n} for n in RenderedImages._fields],
+                value=RenderedImages._fields[0],
                 inline=True,
                 id=VIEW_CHOICE_ID,
                 persistence=True,
@@ -147,8 +147,8 @@ def setup(app) -> None:
         except TypeError:
             click = (-1, -1)
         args = build_scene(store['scene_dict'])
-        im = render_scene(**args, click=click).get(view)
-        return imshow(im, args['view_size'])
+        images = render_scene(**args, click=click)
+        return imshow(getattr(images, view), args['view_size'])
 
     clientside_callback(
         '''

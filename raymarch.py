@@ -3,7 +3,7 @@ from functools import partial
 from utils.linalg import norm, normalize, softmax, relu, smoothmin, smoothabs, Rxyz
 
 # typing
-from typing import Callable, Tuple, Dict, NamedTuple
+from typing import Callable, Tuple, NamedTuple
 from jaxtyping import Array, Float32, UInt8, Bool
 
 Vec3 = Float32[Array, '3']
@@ -13,6 +13,8 @@ Bool3s = Bool[Array, 'n 3']
 Scalar = Float32[Array, '']
 Scalars = Float32[Array, 'n']
 UInts = UInt8[Array, 'n']
+Image = Float32[Array, 'h w']
+Image3 = Float32[Array, 'h w 3']
 
 
 def sdf_sphere(p: Vec3, r: Vec3) -> Scalar:
@@ -130,17 +132,16 @@ def shade(sdf: Callable, light_dir: Vec3, p0: Vec3, n_steps: int = 50, k: float 
     return lax.fori_loop(0, n_steps, shade_step, (1.0, 1e-2))[0]
 
 
-IMAGE_NAMES = (
-    'image',
-    'normal',
-    'color',
-    'shadow',
-    'diffuse',
-    'ambient',
-    'specularity',
-    'coordinate',
-    'depth',
-)
+class RenderedImages(NamedTuple):
+    image: Image3
+    normal: Image3
+    color: Image3
+    coordinate: Image3
+    shadow: Image
+    diffuse: Image
+    ambient: Image
+    specularity: Image
+    depth: Image
 
 
 @partial(jit, static_argnames=('view_size'))
@@ -150,7 +151,7 @@ def render_scene(
     view_size: Tuple[int, int],
     click: Tuple[int, int],
     light_dir: Vec3,
-) -> Dict[str, Array]:
+) -> RenderedImages:
     h, w = view_size
     i, j = click
     rays = camera(view_size)
@@ -174,17 +175,17 @@ def render_scene(
 
     depth = norm(hits - camera.position)
 
-    return {
-        'image': image.reshape(h, w, 3),
-        'normal': (0.5 * normal + 0.5).reshape(h, w, 3),
-        'coordinate': (hits % 1).reshape(h, w, 3),
-        'shadow': shadow.reshape(h, w),
-        'depth': (depth / depth.max()).reshape(h, w),
-        'specularity': specularity.reshape(h, w),
-        'diffuse': diffuse.reshape(h, w),
-        'ambient': ambient.reshape(h, w),
-        'color': color.reshape(h, w, 3),
-    }
+    return RenderedImages(
+        image=image.reshape(h, w, 3),
+        normal=(0.5 * normal + 0.5).reshape(h, w, 3),
+        coordinate=(hits % 1).reshape(h, w, 3),
+        shadow=shadow.reshape(h, w),
+        depth=(depth / depth.max()).reshape(h, w),
+        specularity=specularity.reshape(h, w),
+        diffuse=diffuse.reshape(h, w),
+        ambient=ambient.reshape(h, w),
+        color=color.reshape(h, w, 3),
+    )
 
 
 if __name__ == '__main__':
@@ -200,10 +201,11 @@ if __name__ == '__main__':
     out = render_scene(**build_scene(scene_dict), click=(-1, -1))
 
     rows = 2
-    cols = len(IMAGE_NAMES) // rows + (len(IMAGE_NAMES) % rows > 0)
+    image_names = RenderedImages._fields
+    cols = len(image_names) // rows + (len(image_names) % rows > 0)
     fig, axs = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows))
-    for ax, name in zip(axs.flatten(), IMAGE_NAMES):
-        ax.imshow(to_rgb(out[name]))
+    for ax, name in zip(axs.flatten(), image_names):
+        ax.imshow(to_rgb(getattr(out, name)))
         ax.set_title(name.capitalize())
     for ax in axs.flatten():
         ax.axis('off')
