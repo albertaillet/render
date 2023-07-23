@@ -1,7 +1,5 @@
-from jax import nn, numpy as np
-
-# typing
-from jax import Array
+from jax import nn, numpy as np, Array
+from typing import Union
 
 
 def norm(x: Array, axis: int = -1, keepdims: bool = False, eps: float = 0.0) -> Array:
@@ -12,7 +10,7 @@ def normalize(x: Array, axis: int = -1, eps: float = 1e-20) -> Array:
     return x / norm(x, axis=axis, keepdims=True, eps=eps)
 
 
-def smoothmin(x: Array, c: float = 0.125, **kwargs) -> Array:
+def smoothmin(x: Array, c: Union[float, Array] = 0.125, **kwargs) -> Array:
     return -c * nn.logsumexp(-x / c, **kwargs)
 
 
