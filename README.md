@@ -1,6 +1,6 @@
 # Raymarching in JAX
 
-Dash app to interact with raymarching in JAX. Toy project to learn about raymarching.
+Interactive raymarching in [JAX](https://github.com/google/jax). Toy project to learn about raymarching.
 
 Try it out using colab:
 
@@ -18,7 +18,7 @@ Here are three examples of rendered scenes and their corresponding normals:
 <img src="assets/airpods_normals.png" width="32%" title="An airpods case normals">
 </p>
 
-While in the app, the scene lighting can be changed by clicking on the rendered scene.
+While in the [Dash](https://github.com/plotly/dash) app, the scene lighting can be changed by clicking on the rendered scene.
 
 The scene can also be modified while in the app, it is represented in a yaml format. Here is an example of a scene with a sphere, a box and a plane:
 
@@ -67,10 +67,10 @@ python app.py
 
 The repository is structured as follows:
 
-    ├── app.py                  # Main file to run the dash app.
+    ├── app.py                  # Main file to run the Dash app.
     ├── raymarch.py             # Raymarching JAX code.
     ├── builder.py              # Code to build the scene from a yaml file.
-    ├── setup.py                # Code to setup the dash app layout and callbacks.
+    ├── tests.py                # Tests the scene building and raymarching.
     ├── utils                   # Miscellanous utility functions.
     │   ├── plot.py             # Plotting functions.
     │   └── linalg.py           # Linear algebra functions.
