@@ -1,20 +1,21 @@
 from jax import vmap, grad, jit, lax, numpy as np
-from functools import partial
 from utils.linalg import norm, normalize, softmax, relu, smoothmin, smoothabs, Rxyz
+from functools import partial
 
 # typing
 from typing import Callable, Tuple, NamedTuple
-from jaxtyping import Array, Float32, UInt8, Bool
+from jaxtyping import Array, Float32, UInt8, Bool, Shaped
 
-Vec3 = Float32[Array, '3']
-Vec3s = Float32[Array, 'n 3']
-Bool3 = Bool[Array, '3']
-Bool3s = Bool[Array, 'n 3']
 Scalar = Float32[Array, '']
-Scalars = Float32[Array, 'n']
-UInts = UInt8[Array, 'n']
-Image = Float32[Array, 'h w']
-Image3 = Float32[Array, 'h w 3']
+Vec3 = Float32[Scalar, '3']
+Bool3 = Bool[Array, '3']
+UInt = UInt8[Array, '']
+Scalars = Shaped[Scalar, 'n']
+Vec3s = Shaped[Vec3, 'n']
+Bool3s = Shaped[Bool3, 'n']
+UInts = Shaped[UInt, 'n']
+Image = Shaped[Scalar, 'h w']
+Image3 = Shaped[Vec3, 'h w']
 
 
 def sdf_sphere(p: Vec3, r: Vec3) -> Scalar:
@@ -72,8 +73,8 @@ class Camera(NamedTuple):
         return normalize(rays) @ R
 
 
-class Scene(NamedTuple):
-    objects: UInts
+class Objects(NamedTuple):
+    object_ids: UInts
     positions: Vec3s
     attributes: Vec3s
     rotations: Vec3s
@@ -84,14 +85,14 @@ class Scene(NamedTuple):
 
     def sdfs(self, p: Vec3) -> Scalars:
         def switch(
-            p: Vec3, obj_idx: UInt8, pos: Vec3, attr: Vec3, rot: Vec3, mirror: Bool3
+            p: Vec3, obj_idx: UInt, pos: Vec3, attr: Vec3, rot: Vec3, mirror: Bool3
         ) -> Scalar:
             p = np.where(mirror, smoothabs(p, 1e-3), p)
             p = (p - pos) @ Rxyz(rot)
             return lax.switch(obj_idx, BRANCHES, p, attr)
 
         dists = vmap(partial(switch, p))(
-            self.objects,
+            self.object_ids,
             self.positions,
             self.attributes,
             self.rotations,
@@ -146,7 +147,7 @@ class RenderedImages(NamedTuple):
 
 @partial(jit, static_argnames=('view_size'))
 def render_scene(
-    scene: Scene,
+    objects: Objects,
     camera: Camera,
     view_size: Tuple[int, int],
     click: Tuple[int, int],
@@ -156,15 +157,15 @@ def render_scene(
     i, j = click
     rays = camera(view_size)
 
-    hits = vmap(partial(raymarch, scene.sdf, camera.position))(rays)
-    color = vmap(scene.color)(hits)
-    raw_normal = vmap(grad(scene.sdf))(hits)
+    hits = vmap(partial(raymarch, objects.sdf, camera.position))(rays)
+    color = vmap(objects.color)(hits)
+    raw_normal = vmap(grad(objects.sdf))(hits)
 
     ambient = norm(raw_normal, keepdims=True)
-    normal: Array = raw_normal / ambient
+    normal = raw_normal / ambient
 
     light_dir = lax.cond(i == -1, lambda: normalize(light_dir), lambda: normal[i * w + j])
-    shadow = vmap(partial(shade, scene.sdf, light_dir))(hits).reshape(-1, 1)
+    shadow = vmap(partial(shade, objects.sdf, light_dir))(hits).reshape(-1, 1)
 
     diffuse = normal.dot(light_dir).clip(0.0).reshape(-1, 1)
     specularity = (normal * normalize(light_dir - rays)).sum(axis=1, keepdims=True).clip(0.0) ** 200
@@ -178,36 +179,11 @@ def render_scene(
     return RenderedImages(
         image=image.reshape(h, w, 3),
         normal=(0.5 * normal + 0.5).reshape(h, w, 3),
+        color=color.reshape(h, w, 3),
         coordinate=(hits % 1).reshape(h, w, 3),
         shadow=shadow.reshape(h, w),
-        depth=(depth / depth.max()).reshape(h, w),
-        specularity=specularity.reshape(h, w),
         diffuse=diffuse.reshape(h, w),
         ambient=ambient.reshape(h, w),
-        color=color.reshape(h, w, 3),
+        specularity=specularity.reshape(h, w),
+        depth=(depth / depth.max()).reshape(h, w),
     )
-
-
-if __name__ == '__main__':
-    from sys import argv
-    from matplotlib import pyplot as plt
-    from utils.plot import load_yaml, to_rgb
-    from builder import build_scene, check_scene_dict
-
-    plt.style.use('grayscale')
-    file = argv[1] if len(argv) > 1 else 'scene'
-
-    scene_dict = check_scene_dict(load_yaml(f'scenes/{file}.yml'))
-    out = render_scene(**build_scene(scene_dict), click=(-1, -1))
-
-    rows = 2
-    image_names = RenderedImages._fields
-    cols = len(image_names) // rows + (len(image_names) % rows > 0)
-    fig, axs = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows))
-    for ax, name in zip(axs.flatten(), image_names):
-        ax.imshow(to_rgb(getattr(out, name)))
-        ax.set_title(name.capitalize())
-    for ax in axs.flatten():
-        ax.axis('off')
-    plt.tight_layout()
-    plt.show()

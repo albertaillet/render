@@ -1,4 +1,5 @@
 .DS_Store
 colab_*.py
 *.pyc
-assets/other/*
+assets/other/
+.vscode/

@@ -1,5 +1,5 @@
 from jax import numpy as np, tree_map
-from raymarch import Scene, Camera, OBJECT_IDX
+from raymarch import Objects, Camera, OBJECT_IDX
 
 # typing
 from typeguard import check_type
@@ -36,10 +36,10 @@ def add_obj_dict_defaults(
     color: Tuple[float, float, float] = (0, 0, 0),
     position: Tuple[float, float, float] = (0, 0, 0),
     rotation: Tuple[float, float, float] = (0, 0, 0),
-    mirror: Tuple[float, float, float] = (0, 0, 0),
+    mirror: Tuple[int, int, int] = (0, 0, 0),
     rounding: float = 0,
 ) -> ObjectDict:
-    return locals()
+    return check_type(locals(), ObjectDict)
 
 
 def is_seq(x: Any) -> bool:
@@ -66,12 +66,13 @@ def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
 def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
     '''Create a scene, camera and other parameters from a dict of expected format (see scene.yml)'''
     obj_names, obj_dicts = zip(*scene_dict['Objects'])
-    obj_args = tree_map(lambda *xs: np.float32(xs), *obj_dicts, is_leaf=is_seq)  # transpose tree
+    obj_args = tree_map(lambda *xs: xs, *obj_dicts, is_leaf=is_seq)  # transpose tree
     obj_args = {k + 's': v for k, v in obj_args.items()}  # add 's' to pluralize keys
+    obj_args = tree_map(np.float32, obj_args, is_leaf=is_seq)  # convert to float32
     obj_args['mirrorings'] = obj_args.pop('mirrors').astype(np.bool_)  # convert mirrorings
     return {
-        'scene': Scene(
-            objects=np.uint8([OBJECT_IDX[o] for o in obj_names]),
+        'objects': Objects(
+            object_ids=np.uint8([OBJECT_IDX[o] for o in obj_names]),  # type: ignore
             **obj_args,
             smoothing=np.float32(scene_dict['smoothing']),
         ),
@@ -79,20 +80,3 @@ def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
         'view_size': (scene_dict['height'], scene_dict['width']),
         'light_dir': np.float32(scene_dict['light_dir']),
     }
-
-
-if __name__ == '__main__':
-    from pathlib import Path
-    from utils.plot import load_yaml
-    from raymarch import render_scene
-
-    annotations = {
-        arg: render_scene.__annotations__[arg]
-        for arg in ('scene', 'camera', 'view_size', 'light_dir')
-    }
-    RenderArgs = TypedDict('RenderArgs', annotations)  # type: ignore
-
-    for path in Path('scenes').glob('*.yml'):
-        scene_dict = check_type(check_scene_dict(load_yaml(path)), SceneDict)
-        check_type(build_scene(scene_dict), RenderArgs)
-        print('Checked', path.name)

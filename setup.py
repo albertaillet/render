@@ -1,14 +1,13 @@
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, clientside_callback, no_update, callback_context, ALL
 from dash.dcc import Graph, Store
-from yaml import SafeLoader, load
+from yaml import safe_load
 from raymarch import RenderedImages, render_scene
 from builder import check_scene_dict, build_scene
 from utils.plot import imshow
 from pathlib import Path
+from plotly import graph_objects as go
 
-# typing
-from typing import Tuple
 
 GRAPH_ID = 'graph'
 GRAPH_DOWNLOAD_BUTTON_ID = 'graph-download-button'
@@ -19,10 +18,11 @@ EDIT_POPOVER_ID = 'edit-popover'
 EDIT_POPOVERHEADER_ID = 'edit-popoverheader'
 EDIT_POPOVERBODY_ID = 'edit-popoverbody'
 FILE_LOAD_DROPDOWN_ID = 'file-load-dropdown'
+SCENES_PATH = Path('scenes')
 
 
 def setup(app) -> None:
-    FILES = sorted(Path('scenes').glob('*.yml'))
+    scene_files = sorted(SCENES_PATH.glob('*.yml'))
     app.title = 'Render'
     app.config.external_stylesheets = [dbc.themes.DARKLY]
 
@@ -36,7 +36,7 @@ def setup(app) -> None:
             dbc.DropdownMenu(
                 [
                     dbc.DropdownMenuItem(file.stem, id={'type': FILE_LOAD_DROPDOWN_ID, 'index': i})
-                    for i, file in enumerate(FILES)
+                    for i, file in enumerate(scene_files)
                 ],
                 label='Load Scene from File',
                 id=FILE_LOAD_DROPDOWN_ID,
@@ -107,11 +107,11 @@ def setup(app) -> None:
         Output(EDIT_POPOVERBODY_ID, 'children'),
         Input(EDIT_CODE_ID, 'value'),
     )
-    def save_code_to_store(scene_str: str) -> Tuple[dict, bool, bool, str, str]:
+    def save_code_to_store(scene_str: str) -> tuple:
         '''Saves the editable scene config to the store if it is valid.
         Otherwise, shows an error popover.'''
         try:
-            scene_dict = check_scene_dict(load(scene_str, Loader=SafeLoader))
+            scene_dict = check_scene_dict(safe_load(scene_str))
             store = {'scene_dict': scene_dict, 'scene_str': scene_str}
             return store, False, False, no_update, no_update
         except Exception as e:
@@ -127,10 +127,10 @@ def setup(app) -> None:
         triggered_prop_ids = callback_context.triggered_prop_ids
         if triggered_prop_ids:  # if a file was clicked
             idx = next(iter(triggered_prop_ids.values()))['index']
-            return open(FILES[idx], 'r').read()
+            return open(scene_files[idx]).read()
         elif store:  # if the store is not empty
             return store['scene_str']
-        return open(FILES[0], 'r').read()  # else load the first file
+        return open(scene_files[0]).read()  # else load the first file
 
     @app.callback(
         Output(GRAPH_ID, 'figure'),
@@ -139,16 +139,16 @@ def setup(app) -> None:
         Input(STORE_ID, 'data'),
         prevent_initial_call=True,
     )
-    def render(click_data: dict, view: str, store: dict) -> dict:
+    def render(click_data: dict, view: str, store: dict) -> go.Figure:
         '''Renders the scene with the given click, view choice and scene data.'''
         try:
             point = click_data['points'][0]
             click = point['y'], point['x']
         except TypeError:
             click = (-1, -1)
-        args = build_scene(store['scene_dict'])
-        images = render_scene(**args, click=click)
-        return imshow(getattr(images, view), args['view_size'])
+        scene = build_scene(store['scene_dict'])
+        images = render_scene(**scene, click=click)
+        return imshow(getattr(images, view), scene['view_size'])
 
     clientside_callback(
         '''
