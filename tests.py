@@ -5,7 +5,7 @@ from typeguard import check_type
 from matplotlib import pyplot as plt
 from raymarch import render_scene, RenderedImages
 from builder import build_scene, check_scene_dict, SceneDict
-from setup import SCENES_PATH
+from app import SCENES_PATH
 
 
 def test_all_scenes():

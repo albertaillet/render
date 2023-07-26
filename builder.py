@@ -1,5 +1,5 @@
 from jax import numpy as np, tree_map
-from raymarch import Objects, Camera, OBJECT_IDX
+from raymarch import Objects, Camera, OBJECTS
 
 # typing
 from typeguard import check_type
@@ -18,7 +18,7 @@ class ObjectDict(TypedDict):
     color: Tuple[float, float, float]
     position: Tuple[float, float, float]
     rotation: Tuple[float, float, float]
-    mirror: Tuple[float, float, float]
+    mirror: Tuple[int, int, int]
     rounding: float
 
 
@@ -57,7 +57,7 @@ def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
     # checking the obj_names and adding default values where needed
     for i in range(len(scene_dict['Objects'])):
         obj_name, obj_dict = next(iter(scene_dict['Objects'][i].items()))  # first item of dict
-        assert obj_name in OBJECT_IDX, f'Unknown object name {obj_name}'
+        assert obj_name in OBJECTS, f'Unknown object name {obj_name}'
         scene_dict['Objects'][i] = (obj_name, add_obj_dict_defaults(**obj_dict))
 
     return check_type(scene_dict, SceneDict)
@@ -72,7 +72,7 @@ def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
     obj_args['mirrorings'] = obj_args.pop('mirrors').astype(np.bool_)  # convert mirrorings
     return {
         'objects': Objects(
-            object_ids=np.uint8([OBJECT_IDX[o] for o in obj_names]),  # type: ignore
+            ids=np.uint8([OBJECTS.index(o) for o in obj_names]),  # type: ignore
             **obj_args,
             smoothing=np.float32(scene_dict['smoothing']),
         ),

@@ -42,13 +42,7 @@ def sdf_ellipsoid(p: Vec3, r: Vec3) -> Scalar:
     return k0 * (k0 - 1) / k1
 
 
-OBJECT_IDX = {
-    'Box': 0,
-    'Sphere': 1,
-    'Plane': 2,
-    'Torus': 3,
-    'Ellipsoid': 4,
-}
+OBJECTS = ('Box', 'Sphere', 'Plane', 'Torus', 'Ellipsoid')
 BRANCHES = (sdf_box, sdf_sphere, sdf_plane, sdf_torus, sdf_ellipsoid)
 
 
@@ -74,7 +68,7 @@ class Camera(NamedTuple):
 
 
 class Objects(NamedTuple):
-    object_ids: UInts
+    ids: UInts
     positions: Vec3s
     attributes: Vec3s
     rotations: Vec3s
@@ -84,15 +78,13 @@ class Objects(NamedTuple):
     smoothing: Scalar
 
     def sdfs(self, p: Vec3) -> Scalars:
-        def switch(
-            p: Vec3, obj_idx: UInt, pos: Vec3, attr: Vec3, rot: Vec3, mirror: Bool3
-        ) -> Scalar:
+        def switch(p: Vec3, id: UInt, pos: Vec3, attr: Vec3, rot: Vec3, mirror: Bool3) -> Scalar:
             p = np.where(mirror, smoothabs(p, 1e-3), p)
             p = (p - pos) @ Rxyz(rot)
-            return lax.switch(obj_idx, BRANCHES, p, attr)
+            return lax.switch(id, BRANCHES, p, attr)
 
         dists = vmap(partial(switch, p))(
-            self.object_ids,
+            self.ids,
             self.positions,
             self.attributes,
             self.rotations,
