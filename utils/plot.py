@@ -31,6 +31,8 @@ def imshow(im: Optional[Array] = None, view_size: Tuple[int, int] = (0, 0)) -> g
 
 
 def to_rgb(im: Array) -> NpArray:
+    if len(im.shape) == 2:
+        im = im.reshape(*im.shape, 1).repeat(3, axis=2)
     if isnan(im).any():
         im = fill_nan(im)
     return uint8(255 * im.clip(0.0, 1.0))
@@ -48,8 +50,5 @@ def fill_nan(im: Array) -> Array:
 
     def color_nan_pixel(x: Array) -> Array:
         return np.where(np.isnan(x).any(), np.array([1, 0, 0]), x)
-
-    if len(im.shape) == 2:
-        im = np.tile(im.reshape(*im.shape, 1), (1, 1, 3))
 
     return vmap(vmap(color_nan_pixel))(im)

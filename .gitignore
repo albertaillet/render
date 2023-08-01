@@ -3,3 +3,4 @@ colab_*.py
 *.pyc
 assets/other/
 .vscode/
+tmp/
