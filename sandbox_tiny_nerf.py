@@ -16,14 +16,16 @@ def get_unit_rays_linspace(h, w, focal):
     y = np.linspace(-by, by, h)
     x, y = np.meshgrid(x, y, indexing="xy")
     x, y = x.flatten(), y.flatten()
-    unit_rays = np.stack((x, y, -np.ones(w * h)), axis=-1)
+    unit_rays = np.stack((x, y, -np.ones_like(x)), axis=-1)
     unit_rays = unit_rays / np.linalg.norm(unit_rays, axis=-1, keepdims=True)
     return unit_rays
 
 
 def get_unit_rays_arange(h, w, focal):
     # Create a 2D rectangular grid for the rays corresponding to image dimensions
-    i, j = np.meshgrid(np.arange(w), np.arange(h), indexing="xy")
+    x = np.arange(w)
+    y = np.arange(h)
+    i, j = np.meshgrid(x, y, indexing="xy")
     i, j = i.flatten(), j.flatten()
     transformed_i = (i - w * 0.5) / focal  # Normalize the x-axis coordinates
     transformed_j = -(j - h * 0.5) / focal  # Normalize the y-axis coordinates
