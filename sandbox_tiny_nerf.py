@@ -36,23 +36,24 @@ def get_unit_rays_arange(h, w, focal):
     return unit_rays
 
 
-def get_rays(unit_rays, pose):
+def get_rays(unit_rays, poses):
     # unit_rays is assumed to be normalized already
-    rays = np.einsum("il,kl", unit_rays, pose[:3, :3])
+    rays = np.einsum("il,nkl->nik", unit_rays, poses[:, :3, :3])
     return rays
 
 
-def get_pose_fig(unit_rays, poses):
+def get_pose_fig(ray_origins, ray_directions):
     empty = [None] * 3
+    n_poses = len(ray_origins)
+
     traces = []
     traces.append(go.Scatter3d(x=[0], y=[0], z=[0], mode="markers"))
-
-    for pose in poses:
+    for i in range(n_poses):
         coords = []
-        rays = get_rays(unit_rays, pose)
-        ray_origin = pose[:3, -1]
-        for j in range(len(rays)):
-            coords.extend([ray_origin, rays[j], empty])
+        ray_origin = ray_origins[i]
+
+        for j in range(ray_directions.shape[1]):
+            coords.extend([ray_origin, ray_origin + ray_directions[i, j], empty])
 
         x_coords = [x for x, _, _ in coords]
         y_coords = [y for _, y, _ in coords]
@@ -63,10 +64,11 @@ def get_pose_fig(unit_rays, poses):
 
 
 h, w = 100, 100
-poses = data["poses"][:20]
-unit_rays = get_unit_rays_arange(h, w, data["focal"])
-get_pose_fig(unit_rays, poses).show()
-unit_rays = get_unit_rays_linspace(h, w, data["focal"])
-get_pose_fig(unit_rays, poses).show()
+poses = data["poses"][:10]
+ray_origins = poses[:, :3, -1]
+ray_directions = get_rays(get_unit_rays_arange(h, w, data["focal"]), poses)
+get_pose_fig(ray_origins, ray_directions).show()
+ray_directions = get_rays(get_unit_rays_linspace(h, w, data["focal"]), poses)
+get_pose_fig(ray_origins, ray_directions).show()
 
 # %%
