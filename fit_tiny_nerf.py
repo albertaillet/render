@@ -1,8 +1,8 @@
 # %%
-from jax import jit, grad, value_and_grad, vmap, numpy as np, random
-from jax.nn import sigmoid
+from jax import jit, grad, value_and_grad, vmap, numpy as np, random, lax
+from jax.nn import softplus, relu
 from optax import OptState, apply_updates, adam
-from utils.linalg import normalize, norm, smoothmin, softmax, Rxyz, relu
+from utils.linalg import normalize, norm, smoothmin, softmax, Rxyz
 from utils.plot import to_rgb, fromarray
 from IPython.display import display
 from raymarch import Vec3, Vec3s, Scalar, Scalars, sdf_box, RenderedImages, raymarch, shade, Image3
@@ -36,6 +36,7 @@ class DifferentiableObjects(NamedTuple):
     colors: Vec3s
     roundings: Scalars
     smoothing: Scalar
+    outer: Scalar
 
     def sdfs(self, p: Vec3) -> Scalars:
         p = p - self.positions
@@ -45,22 +46,27 @@ class DifferentiableObjects(NamedTuple):
 
     def sdf(self, p: Vec3) -> Scalar:
         dists = self.sdfs(p)
-        return smoothmin(dists, relu(self.smoothing))
+        return smoothmin(dists, softplus(self.smoothing - 2))
 
     def color(self, p: Vec3) -> Scalar:
         dists = self.sdfs(p)
-        return softmax(-dists / relu(self.smoothing)) @ sigmoid(self.colors)
+        return lax.cond(
+            np.max(dists) > self.outer,
+            lambda: np.zeros(3),
+            lambda: softmax(-dists / softplus(self.smoothing - 2)) @ softplus(self.colors),
+        )
 
 
 def create_objects(seed: Array, n: int) -> DifferentiableObjects:
     p_key, s_key, r_key, c_key = random.split(seed, 4)
     shape = (n, 3)
     positions = 0.1 * random.normal(p_key, shape)
-    sides = 0.05 * random.uniform(s_key, shape)
+    sides = 0.1 * random.uniform(s_key, shape)
     rotations = random.uniform(r_key, shape)
     colors = random.uniform(c_key, shape)
-    roundings = 0.0 * random.uniform(r_key, (n,))
-    smoothing = np.array(0.01)
+    roundings = np.zeros(n)
+    smoothing = np.array(0.0)
+    outer = np.array(10.0)  # outer radius
     return DifferentiableObjects(
         positions=positions,
         sides=sides,
@@ -68,6 +74,7 @@ def create_objects(seed: Array, n: int) -> DifferentiableObjects:
         colors=colors,
         roundings=roundings,
         smoothing=smoothing,
+        outer=outer,
     )
 
 
@@ -76,7 +83,7 @@ def get_unit_rays_linspace(view_size: Tuple[int, int], focal: float) -> Vec3s:
     bx = 0.5 * w / focal
     by = 0.5 * h / focal
     x = np.linspace(bx, -bx, w)
-    y = np.linspace(-by, by, h)
+    y = np.linspace(by, -by, h)
     x, y = np.meshgrid(x, y, indexing="xy")
     x, y = x.flatten(), y.flatten()
     unit_rays = np.stack((x, y, -np.ones_like(x)), axis=-1)
@@ -90,31 +97,30 @@ def get_rays(unit_rays: Vec3s, poses: Array) -> Array:
     return rays
 
 
-@partial(jit, static_argnames=('view_size'))
-def render_scene(
+@jit
+def render(
     objects: DifferentiableObjects,
     position: Vec3,
     rays: Vec3s,
-    view_size: Tuple[int, int],
     light_dir: Vec3,
 ) -> RenderedImages:
     h, w = view_size
 
-    hits = vmap(partial(raymarch, objects.sdf, position, n_steps=10))(rays)
+    hits = vmap(partial(raymarch, objects.sdf, position, n_steps=20))(rays)
     color = vmap(objects.color)(hits)
     raw_normal = vmap(grad(objects.sdf))(hits)
 
     ambient = norm(raw_normal, keepdims=True)
     normal = raw_normal / ambient
 
-    shadow = vmap(partial(shade, objects.sdf, light_dir))(hits).reshape(-1, 1)
-
+    # shadow = vmap(partial(shade, objects.sdf, light_dir))(hits).reshape(-1, 1)
+    shadow = np.zeros(view_size)  # dummy
     diffuse = normal.dot(light_dir).clip(0.0).reshape(-1, 1)
     specularity = (normal * normalize(light_dir - rays)).sum(axis=1, keepdims=True).clip(0.0) ** 200
 
-    light = 0.8 * shadow * diffuse + 0.2 * ambient
-    image = color * light + 0.3 * shadow * specularity
-    image = image ** (1.0 / 2.2)  # gamma correction
+    # light = shadow * diffuse  # * 0.8 + 0.2 * ambient
+    image = color  # * light  # + 0.3 * shadow * specularity
+    # image = image ** (1.0 / 2.2)  # gamma correction
 
     depth = norm(hits - position)
 
@@ -157,7 +163,7 @@ def loss_fn(
     gt_image: Image3,
 ) -> Tuple[Array, RenderedImages]:
     # render scene
-    images = render_scene(objects, position, rays, view_size, light_dir)
+    images = render(objects, position, rays, light_dir)
     # compute l1 loss
     img_loss = np.abs(images.image - gt_image).mean()
     # depth_loss = np.where(foreground, np.abs(depth - depth_gt), 0.0).mean()
@@ -185,35 +191,39 @@ unit_rays = get_unit_rays_linspace(view_size, focal=float(data['focal']))
 rays = get_rays(unit_rays, data['poses'])
 positions = data['poses'][:, :3, -1]
 light_dir = normalize(np.array([0.0, 0.0, 1.0]))
+objects = create_objects(random.PRNGKey(0), 40)
+for i in range(3):
+    images = render(objects, positions[i], rays[i], light_dir)
+    display(imrow(*images))
+print(*images._fields, sep=', ')  # type: ignore
+
+# show_slice(objects.sdf, z=0.0, w=200, r=5, y_c=0.5)
 
 # %%
-i = 0
-objects = create_objects(random.PRNGKey(0), 20)
-show_slice(objects.sdf, z=0.0, w=400, r=1.5, y_c=0.5)
-images = render_scene(objects, positions[i], rays[i], view_size, light_dir)
-display(imrow(*images))
-print(*images._fields, sep=', ')
-
-# %%
-lr = 0.01
+lr = 0.001
 opt_init, opt_update = adam(lr)
 opt_state = opt_init(objects)
-pbar = tqdm(range(2))
+pbar = tqdm(range(100))
 frames = []
+train_size = 100
 
 # %%
-train_size = 100
+pbar = tqdm(range(100))
 for i in pbar:
     i = i % train_size
     objects, loss, images, opt_state = update_fn(
         objects, positions[i], rays[i], gt_images[i], opt_state
     )
     pbar.set_description(f'loss: {loss:.4f}')
-    frames.append(to_rgb(images.image))
     display(imrow(*images))
+    if i % 10 == 0:
+        images = render(objects, positions[0], rays[0], light_dir)
+        frames.append(images)
+        display(imrow(*images))
+
 
 # %%
-imgs = [fromarray(img) for img in frames]
+imgs = [fromarray(to_rgb(imgs.image)) for imgs in frames]
 imgs[0].save(
     'assets/other/lego.gif',
     save_all=True,
