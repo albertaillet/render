@@ -2,13 +2,12 @@
 from jax import jit, grad, value_and_grad, vmap, numpy as np, random
 from jax.nn import sigmoid
 from optax import OptState, apply_updates, adam
-from utils.mlp import init_mlp_params, MLP
-from utils.linalg import normalize, norm, smoothmin, softmax, Rxyz
+from utils.linalg import normalize, norm, smoothmin, softmax, Rxyz, relu
 from utils.plot import to_rgb, fromarray
-from raymarch import Vec3, Vec3s, Scalar, Scalars, sdf_box, RenderedImages, raymarch, shade
+from IPython.display import display
+from raymarch import Vec3, Vec3s, Scalar, Scalars, sdf_box, RenderedImages, raymarch, shade, Image3
 from functools import partial
 from tqdm import tqdm
-from PIL import Image
 from matplotlib import pyplot as plt
 from numpy import load, hstack
 
@@ -16,13 +15,20 @@ from numpy import load, hstack
 from typing import Tuple, Sequence, NamedTuple
 from jax import Array
 
-VIEW_SIZE = (100, 100)
+# %% tiny nerf: https://cseweb.ucsd.edu//~viscomp/projects/LF/papers/ECCV20/nerf/tiny_nerf_data.npz
+data = load('assets/other/tiny_nerf_data.npz')
+print(*[f'{k}: {data[k].shape},' for k in data.keys()])  # noqa
+view_size = data['images'].shape[1:3]
 
 
-def imrow(*images: Sequence[Array]) -> Image.Image:
+def imrow(*images: Sequence[Array]):
     return fromarray(hstack([to_rgb(image) for image in images]))  # type: ignore
 
 
+display(imrow(*list(data['images'][:5])))
+
+
+# %%
 class DifferentiableObjects(NamedTuple):
     positions: Vec3s
     sides: Vec3s
@@ -35,24 +41,17 @@ class DifferentiableObjects(NamedTuple):
         p = p - self.positions
         p = vmap(lambda p, r: p @ Rxyz(r))(p, self.rotations)
         dists = sdf_box(p, self.sides)
-        return dists - self.roundings
+        return dists - relu(self.roundings)
 
     def sdf(self, p: Vec3) -> Scalar:
         dists = self.sdfs(p)
-        return smoothmin(dists, self.smoothing)
+        return smoothmin(dists, relu(self.smoothing))
 
     def color(self, p: Vec3) -> Scalar:
         dists = self.sdfs(p)
-        return softmax(-dists / self.smoothing) @ self.colors
+        return softmax(-dists / relu(self.smoothing)) @ sigmoid(self.colors)
 
 
-# %% tiny nerf: https://cseweb.ucsd.edu//~viscomp/projects/LF/papers/ECCV20/nerf/tiny_nerf_data.npz
-data = load('assets/other/tiny_nerf_data.npz')
-print(*[f'{k}: {data[k].shape},' for k in data.keys()])  # noqa
-imrow(*list(data['images'][:5]))
-
-
-# %%
 def create_objects(seed: Array, n: int) -> DifferentiableObjects:
     p_key, s_key, r_key, c_key = random.split(seed, 4)
     shape = (n, 3)
@@ -72,11 +71,8 @@ def create_objects(seed: Array, n: int) -> DifferentiableObjects:
     )
 
 
-objects = create_objects(random.PRNGKey(0), 20)
-
-
-# %%
-def get_unit_rays_linspace(h, w, focal):
+def get_unit_rays_linspace(view_size: Tuple[int, int], focal: float) -> Vec3s:
+    h, w = view_size
     bx = 0.5 * w / focal
     by = 0.5 * h / focal
     x = np.linspace(bx, -bx, w)
@@ -88,22 +84,23 @@ def get_unit_rays_linspace(h, w, focal):
     return unit_rays
 
 
-def get_rays(unit_rays, poses):
+def get_rays(unit_rays: Vec3s, poses: Array) -> Array:
     # unit_rays is assumed to be normalized already
-    rays = np.einsum("il,nkl", unit_rays, poses[:, :3, :3])
+    rays = np.einsum("il,nkl->nik", unit_rays, poses[:, :3, :3])
     return rays
 
 
 @partial(jit, static_argnames=('view_size'))
 def render_scene(
     objects: DifferentiableObjects,
+    position: Vec3,
     rays: Vec3s,
     view_size: Tuple[int, int],
     light_dir: Vec3,
 ) -> RenderedImages:
     h, w = view_size
 
-    hits = vmap(partial(raymarch, objects.sdf, camera.position, n_steps=10))(rays)
+    hits = vmap(partial(raymarch, objects.sdf, position, n_steps=10))(rays)
     color = vmap(objects.color)(hits)
     raw_normal = vmap(grad(objects.sdf))(hits)
 
@@ -119,7 +116,7 @@ def render_scene(
     image = color * light + 0.3 * shadow * specularity
     image = image ** (1.0 / 2.2)  # gamma correction
 
-    depth = norm(hits - camera.position)
+    depth = norm(hits - position)
 
     return RenderedImages(
         image=image.reshape(h, w, 3),
@@ -132,15 +129,6 @@ def render_scene(
         specularity=specularity.reshape(h, w),
         depth=(depth / depth.max()).reshape(h, w),
     )
-
-
-# %%
-def get_depth_contour(depth: Array, camera: Camera) -> Array:
-    rays = camera.rays(view_size=depth.shape).reshape(*depth.shape, 3)
-    assert np.allclose(norm(rays, axis=-1, keepdims=True), 1.0)
-    depth = np.where(depth == np.inf, np.nan, depth)
-    points = rays * depth[:, :, None]
-    return points + camera.position
 
 
 def show_slice(sdf, z=0.0, w=400, r=3.5, y_c=0.0, points=None):
@@ -161,59 +149,73 @@ def show_slice(sdf, z=0.0, w=400, r=3.5, y_c=0.0, points=None):
     plt.show()
 
 
-depth_points = get_depth_contour(depth_gt, camera)
-show_slice(learnt_scene.sdf, z=0.0, w=400, r=1.5, y_c=0.5, points=depth_points)
-
-
-# %%
 @jit
 def loss_fn(
-    scene: Scene,
-    camera: Camera,
-) -> Tuple[Array, Array]:
+    objects: DifferentiableObjects,
+    position: Vec3,
+    rays: Vec3s,
+    gt_image: Image3,
+) -> Tuple[Array, RenderedImages]:
     # render scene
-    image, depth = render_scene(scene, camera)
+    images = render_scene(objects, position, rays, view_size, light_dir)
     # compute l1 loss
-    img_loss = np.where(foreground[:, :, None], np.abs(image - img_gt), 0.0).mean()
+    img_loss = np.abs(images.image - gt_image).mean()
     # depth_loss = np.where(foreground, np.abs(depth - depth_gt), 0.0).mean()
     loss = img_loss  # + depth_loss
-    return loss, (image, depth)
+    return loss, images
 
 
 @jit
 def update_fn(
-    scene: Scene,
-    camera: Camera,
+    objects: DifferentiableObjects,
+    position: Vec3,
+    rays: Vec3s,
+    gt_image: Image3,
     opt_state: OptState,
-) -> Tuple[Scene, Array, Array, OptState]:
-    (loss, (learnt_img, learnt_depth)), grads = value_and_grad(loss_fn, has_aux=True)(scene, camera)
+) -> Tuple[DifferentiableObjects, Array, RenderedImages, OptState]:
+    (loss, images), grads = value_and_grad(loss_fn, has_aux=True)(objects, position, rays, gt_image)
     updates, opt_state = opt_update(grads, opt_state)
-    scene = apply_updates(scene, updates)
-    return scene, loss, learnt_img, learnt_depth, opt_state
+    objects = apply_updates(objects, updates)  # type: ignore
+    return objects, loss, images, opt_state
 
+
+# %%
+gt_images = np.array(data['images'])
+unit_rays = get_unit_rays_linspace(view_size, focal=float(data['focal']))
+rays = get_rays(unit_rays, data['poses'])
+positions = data['poses'][:, :3, -1]
+light_dir = normalize(np.array([0.0, 0.0, 1.0]))
+
+# %%
+i = 0
+objects = create_objects(random.PRNGKey(0), 20)
+show_slice(objects.sdf, z=0.0, w=400, r=1.5, y_c=0.5)
+images = render_scene(objects, positions[i], rays[i], view_size, light_dir)
+display(imrow(*images))
+print(*images._fields, sep=', ')
 
 # %%
 lr = 0.01
 opt_init, opt_update = adam(lr)
-opt_state = opt_init(learnt_scene)
+opt_state = opt_init(objects)
+pbar = tqdm(range(2))
 frames = []
-pbar = tqdm(range(10_000))
 
 # %%
+train_size = 100
 for i in pbar:
-    learnt_scene, loss, learnt_img, learnt_depth, opt_state = update_fn(
-        learnt_scene, camera, opt_state
+    i = i % train_size
+    objects, loss, images, opt_state = update_fn(
+        objects, positions[i], rays[i], gt_images[i], opt_state
     )
     pbar.set_description(f'loss: {loss:.4f}')
-    frames.append(learnt_img)
-    if i % 10 == 0:
-        imshow(learnt_img, learnt_depth)
-        show_slice(learnt_scene.sdf, z=0.0, w=400, r=1.5, y_c=0.5)
+    frames.append(to_rgb(images.image))
+    display(imrow(*images))
 
 # %%
-imgs = [to_pil_image(img) for img in frames]
+imgs = [fromarray(img) for img in frames]
 imgs[0].save(
-    'assets/other/snowman.gif',
+    'assets/other/lego.gif',
     save_all=True,
     append_images=imgs[1:],
     duration=100,
