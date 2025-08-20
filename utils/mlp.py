@@ -4,19 +4,16 @@ from jax.random import normal, split, PRNGKey
 
 # typing
 from jax import Array
-from typing import Tuple, Sequence, NamedTuple, Callable
-from jax.random import PRNGKeyArray
+from typing import Tuple, Sequence, NamedTuple
 
 
-def init_layer_params(m: int, n: int, key: PRNGKeyArray) -> Tuple[Array, Array]:
+def init_layer_params(m: int, n: int, *, key: Array) -> Tuple[Array, Array]:
     return normal(key, (n, m)) / np.sqrt(m), np.zeros(n)
 
 
-def init_mlp_params(
-    sizes: Sequence[int], key: PRNGKeyArray
-) -> Sequence[Tuple[Array, Array]]:
+def init_mlp_params(sizes: Sequence[int], *, key: Array) -> Sequence[Tuple[Array, Array]]:
     keys = split(key, len(sizes))
-    return [init_layer_params(m, n, k) for m, n, k in zip(sizes[:-1], sizes[1:], keys)]
+    return [init_layer_params(m, n, key=k) for m, n, k in zip(sizes[:-1], sizes[1:], keys)]
 
 
 class MLP(NamedTuple):
