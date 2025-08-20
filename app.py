@@ -1,52 +1,51 @@
 import gradio as gr
 from yaml import safe_load
 from pathlib import Path
-from typing import Tuple, Any
+from typing import Tuple
 
 from utils.plot import to_rgb
 from raymarch import RenderedImages, render_scene
 from builder import check_scene_dict, build_scene
 from functools import lru_cache
-from numpy.typing import ArrayLike
 
+FAVICON_PATH = Path(__file__).parent / 'assets/favicon.ico'
 SCENES_PATH = Path(__file__).parent / 'scenes'
 DEFAULT_SCENE_PATH = SCENES_PATH / 'airpods.yml'
 scene_choices = [p.stem for p in sorted(SCENES_PATH.glob('*.yml'))]
 file_load = lambda stem: (SCENES_PATH / f'{stem}.yml').read_text()  # noqa: E731
 
 
-def init_app() -> Tuple[str, ArrayLike]:
+def init_app():
     scene_str = DEFAULT_SCENE_PATH.read_text()
     view = RenderedImages._fields[0]
-    img = render_view(view=view, scene_str=scene_str)
+    img = render_view(view=view, scene_str=scene_str)[1]
     return scene_str, img
 
 
-def validate_scene(scene_str: str) -> dict[str, Any]:
-    """Validate scene YAML. If valid hide error box else show error details."""
+@lru_cache
+def render(scene_str: str, click: Tuple[int, int]) -> RenderedImages | Exception:
+    """Render the scene and return all the images."""
     try:
         check_scene_dict(safe_load(scene_str))
-        return gr.update(visible=False, value='')
     except Exception as e:
-        return gr.update(visible=True, value=f'**{type(e).__name__}**\n\n```\n{e}\n```')
-
-
-@lru_cache
-def render(scene_str: str, click: Tuple[int, int]) -> RenderedImages:
-    """Render the scene and return all the images."""
+        return e
     scene_dict = check_scene_dict(safe_load(scene_str))
     scene = build_scene(scene_dict)
     return render_scene(**scene, click=click)
 
 
-def render_view(view: str, scene_str: str, click: Tuple[int, int] = (-1, -1)) -> ArrayLike:
+def render_view(view: str, scene_str: str, click: Tuple[int, int] = (-1, -1)):
     """Render the scene and return the view."""
-    images = render(scene_str=scene_str, click=click)
-    image = getattr(images, view)
-    return to_rgb(image)
+    match render(scene_str=scene_str, click=click):
+        case Exception() as e:
+            value = f'**{type(e).__name__}**\n\n```\n{e}\n```'
+            return gr.update(visible=True, value=value), gr.update()
+        case RenderedImages() as images:
+            image = getattr(images, view)
+            return gr.update(visible=False, value=''), to_rgb(image)
 
 
-def on_image_click(view: str, scene_str: str, evt: gr.SelectData) -> ArrayLike:
+def on_image_click(view: str, scene_str: str, evt: gr.SelectData):
     return render_view(view=view, scene_str=scene_str, click=tuple(evt.index[::-1]))
 
 
@@ -76,15 +75,13 @@ with gr.Blocks(title='JAX Raymarching (Gradio)') as demo:
     scene_dropdown.change(fn=file_load, inputs=[scene_dropdown], outputs=[code])
 
     # Validate YAML on edit, on success, re-render
-    code.change(fn=validate_scene, inputs=[code], outputs=[error_box]).then(
-        fn=render_view, inputs=[view_radio, code], outputs=[img]
-    )
+    code.change(fn=render_view, inputs=[view_radio, code], outputs=[error_box, img])
 
     # Changing the view triggers a re-render
-    view_radio.change(fn=render_view, inputs=[view_radio, code], outputs=[img])
+    view_radio.change(fn=render_view, inputs=[view_radio, code], outputs=[error_box, img])
 
     # Clicking on the image triggers a re-render with click=(y,x)
-    img.select(fn=on_image_click, inputs=[view_radio, code], outputs=[img])
+    img.select(fn=on_image_click, inputs=[view_radio, code], outputs=[error_box, img])
 
 if __name__ == '__main__':
-    demo.launch()
+    demo.launch(favicon_path=FAVICON_PATH)
