@@ -13,8 +13,12 @@ dependencies = [
     "typeguard>=4.0.0",
     "PyYAML>=6.0",
     "Pillow>=9.5.0",
-    "setuptools"
+    "setuptools",
+    "optax"
 ]
+
+[dependency-groups]
+dev = ["tqdm", "ipykernel", "matplotlib"]
 
 [tool.black]
 skip-string-normalization = true
