@@ -1,4 +1,4 @@
-from jax import numpy as np, tree_map
+from jax import numpy as np, tree
 from raymarch import Objects, Camera, OBJECTS
 
 # typing
@@ -52,7 +52,7 @@ def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
         assert scene_dict[argname] > 0, f'{argname} must be positive'
 
     # cast all lists (that do not contain dicts) to tuples to be able to check length
-    scene_dict = tree_map(lambda x: tuple(x) if is_seq(x) else x, scene_dict, is_leaf=is_seq)
+    scene_dict = tree.map(lambda x: tuple(x) if is_seq(x) else x, scene_dict, is_leaf=is_seq)
 
     # checking the obj_names and adding default values where needed
     for i in range(len(scene_dict['Objects'])):
@@ -66,9 +66,9 @@ def check_scene_dict(scene_dict: Dict[str, Any]) -> SceneDict:
 def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
     '''Create a scene, camera and other parameters from a dict of expected format (see scene.yml)'''
     obj_names, obj_dicts = zip(*scene_dict['Objects'])
-    obj_args = tree_map(lambda *xs: xs, *obj_dicts, is_leaf=is_seq)  # transpose tree
+    obj_args = tree.map(lambda *xs: xs, *obj_dicts, is_leaf=is_seq)  # transpose tree
     obj_args = {k + 's': v for k, v in obj_args.items()}  # add 's' to pluralize keys
-    obj_args = tree_map(np.float32, obj_args, is_leaf=is_seq)  # convert to float32
+    obj_args = tree.map(np.float32, obj_args, is_leaf=is_seq)  # convert to float32
     obj_args['mirrorings'] = obj_args.pop('mirrors').astype(np.bool_)  # convert mirrorings
     return {
         'objects': Objects(
@@ -76,7 +76,7 @@ def build_scene(scene_dict: SceneDict) -> Dict[str, Any]:
             **obj_args,
             smoothing=np.float32(scene_dict['smoothing']),
         ),
-        'camera': Camera(**tree_map(np.float32, scene_dict['Camera'], is_leaf=is_seq)),
+        'camera': Camera(**tree.map(np.float32, scene_dict['Camera'], is_leaf=is_seq)),
         'view_size': (scene_dict['height'], scene_dict['width']),
         'light_dir': np.float32(scene_dict['light_dir']),
     }
