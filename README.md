@@ -23,8 +23,8 @@ While in the [Dash](https://github.com/plotly/dash) app, the scene lighting can 
 The scene can also be modified while in the app, it is represented in a yaml format. Here is an example of a scene with a sphere, a box and a plane:
 
 ```yaml
-width: 200
-height: 200
+width: 256
+height: 256
 smoothing: 0.07
 light_dir: [0.3, 1, -1]
 Camera:

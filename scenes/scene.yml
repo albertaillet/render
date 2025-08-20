@@ -1,5 +1,5 @@
-width: 200 # scene width in pixels
-height: 200 # scene height in pixels
+width: 256 # scene width in pixels
+height: 256 # scene height in pixels
 smoothing: 0.125 # distance smoothing
 light_dir: [1, 0.2, 0.1] # light direction
 Camera:
