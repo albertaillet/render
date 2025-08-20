@@ -2,32 +2,15 @@ from io import BytesIO
 from base64 import b64encode
 from numpy import isnan, uint8
 from PIL.Image import Image, fromarray
-from plotly import graph_objects as go
 
 
 # typing
 from jax import Array
 from numpy.typing import ArrayLike as NpArray
-from typing import Optional, Tuple
 
 
-def imshow(im: Optional[Array] = None, view_size: Tuple[int, int] = (0, 0)) -> go.Figure:
-    h, w = view_size
-
-    return go.Figure(
-        data=go.Image(
-            source=im if im is None else to_base_64(fromarray(to_rgb(im))),
-            hoverinfo='none',
-        ),
-        layout=go.Layout(
-            xaxis=dict(visible=False, range=(0, w)),
-            yaxis=dict(visible=False, range=(h, 0)),
-            margin=dict(l=0, r=0, b=0, t=0, pad=0),
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            dragmode=False,
-        ),
-    )
+def imshow(im: Array) -> str:
+    return to_base_64(fromarray(to_rgb(im)))
 
 
 def to_rgb(im: Array) -> NpArray:
