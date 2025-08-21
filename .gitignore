@@ -4,3 +4,4 @@ colab_*.py
 assets/other/
 .vscode/
 tmp/
+*.egg-info

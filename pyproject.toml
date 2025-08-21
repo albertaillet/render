@@ -15,6 +15,14 @@ dependencies = [
     "gradio>=5.43.1",
 ]
 
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app.py"]
+
 [dependency-groups]
 dev = [
     "ipykernel>=6.30.1",
