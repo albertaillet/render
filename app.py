@@ -1,12 +1,12 @@
+from functools import lru_cache
+from pathlib import Path
+
 import gradio as gr
 from yaml import safe_load
-from pathlib import Path
-from typing import Tuple
 
-from utils.plot import to_rgb
+from builder import build_scene, check_scene_dict
 from raymarch import RenderedImages, render_scene
-from builder import check_scene_dict, build_scene
-from functools import lru_cache
+from utils.plot import to_rgb
 
 FAVICON_PATH = Path(__file__).parent / 'assets/favicon.ico'
 SCENES_PATH = Path(__file__).parent / 'scenes'
@@ -18,23 +18,22 @@ file_load = lambda stem: (SCENES_PATH / f'{stem}.yml').read_text()  # noqa: E731
 def init_app():
     scene_str = DEFAULT_SCENE_PATH.read_text()
     view = RenderedImages._fields[0]
-    img = render_view(view=view, scene_str=scene_str)[1]
+    _, img = render_view(view=view, scene_str=scene_str)
     return scene_str, img
 
 
 @lru_cache
-def render(scene_str: str, click: Tuple[int, int]) -> RenderedImages | Exception:
+def render(scene_str: str, click: tuple[int, int]) -> RenderedImages | Exception:
     """Render the scene and return all the images."""
     try:
-        check_scene_dict(safe_load(scene_str))
+        scene_dict = check_scene_dict(safe_load(scene_str))
     except Exception as e:
         return e
-    scene_dict = check_scene_dict(safe_load(scene_str))
     scene = build_scene(scene_dict)
     return render_scene(**scene, click=click)
 
 
-def render_view(view: str, scene_str: str, click: Tuple[int, int] = (-1, -1)):
+def render_view(view: str, scene_str: str, click: tuple[int, int] = (-1, -1)):
     """Render the scene and return the view."""
     match render(scene_str=scene_str, click=click):
         case Exception() as e:
